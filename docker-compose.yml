@@ -1,0 +1,40 @@
+# MFlight — app + Postgres. Works as a Coolify "Docker Compose" resource or with `docker compose up -d`.
+# Required env: APP_URL, JWT_SECRET, POSTGRES_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: postgres://mflight:${POSTGRES_PASSWORD}@db:5432/mflight
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Club}
+      ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-Admin}
+    volumes:
+      - mflight-uploads:/data/uploads
+    ports:
+      - "3000"
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mflight
+      POSTGRES_USER: mflight
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - mflight-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mflight -d mflight"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  mflight-db:
+  mflight-uploads:
