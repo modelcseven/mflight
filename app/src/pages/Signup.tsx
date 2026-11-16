@@ -84,6 +84,11 @@ export default function Signup() {
           <AuthField label="Confirm password" placeholder="••••••••" icon={Lock} value={confirm} onChange={setConfirm} error={errors.confirm} isPassword autoComplete="new-password" />
           <motion.div variants={staggerItem} className="pt-2">
             <PrimaryButton loading={loading}>Create account</PrimaryButton>
+            <p className="mt-3 text-center text-[12px] text-ink-muted">
+              By creating an account you agree to the{' '}
+              <a href="/terms" target="_blank" rel="noreferrer" className="underline hover:text-ink">Terms of Service</a> and{' '}
+              <a href="/privacy" target="_blank" rel="noreferrer" className="underline hover:text-ink">Privacy Policy</a>.
+            </p>
           </motion.div>
         </form>
       </ShakeOnError>

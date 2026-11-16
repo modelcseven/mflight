@@ -55,7 +55,11 @@ export default function AuthLayout() {
             </AnimatePresence>
           </div>
         </motion.div>
-        <p className="mt-6 text-center text-xs text-white/70">{SETTINGS.club?.clubName ?? 'BMW Car Club Europe'} · Members only</p>
+        <p className="mt-6 text-center text-xs text-white/70">
+          {SETTINGS.club?.clubName ?? 'BMW Car Club Europe'} · Members only ·{' '}
+          <a href="/privacy" className="underline hover:text-white">Privacy</a> ·{' '}
+          <a href="/terms" className="underline hover:text-white">Terms</a>
+        </p>
       </div>
     </div>
   );

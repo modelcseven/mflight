@@ -14,6 +14,7 @@ import { router as meRouter } from './routes/me.js';
 import { router as appRouter } from './routes/app.js';
 import { router as adminRouter } from './routes/admin.js';
 import { scheduleJobs } from './jobs.js';
+import { mountLegal } from './legal.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -74,6 +75,8 @@ app.use('/api/me', meRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api', appRouter);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
+
+mountLegal(app);
 
 app.use('/uploads', express.static(uploadRoot, { maxAge: '30d', fallthrough: false }));
 

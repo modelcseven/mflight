@@ -1,8 +1,10 @@
 # ---------- 1. Build the React front end ----------
 FROM node:22-alpine AS web
+# Coolify may pass NODE_ENV=production as a build arg; the front-end build still needs its dev tools.
+ENV NODE_ENV=development
 WORKDIR /web
 COPY app/package.json app/package-lock.json app/.npmrc ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --include=dev --no-audit --no-fund
 COPY app/ ./
 RUN npm run build
 
