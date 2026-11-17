@@ -313,7 +313,7 @@ export default function Layout() {
             <Link to="/dashboard" className="flex items-center gap-2 md:hidden" aria-label="Paddock">
               <StripeMark />
             </Link>
-            <h1 className="ml-1 min-w-0 truncate font-race text-[26px] uppercase leading-none text-ink sm:text-[28px] md:ml-0">{title}</h1>
+            <h1 className="ml-1 min-w-0 truncate pr-1.5 font-race text-[26px] uppercase leading-none text-ink sm:text-[28px] md:ml-0">{title}</h1>
 
             <div className="ml-auto flex items-center gap-0.5 sm:gap-1.5">
               <MembershipPlate number={MEMBER_PROFILE.membershipNumber} size="sm" className="mr-2 hidden xl:inline-flex" />
