@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import EventCard, { type EventView } from '@/components/events/EventCard';
 import EventModal from '@/components/events/EventModal';
+import Countdown from '@/components/events/Countdown';
 import HeroRouteArc from '@/components/events/HeroRouteArc';
 import { shortTitle } from '@/components/events/eventUtils';
 
@@ -56,6 +58,20 @@ export default function Events() {
   const [sort, setSort] = useState<SortId>('date');
   const [view, setView] = useState<EventView>('grid');
   const [selected, setSelected] = useState<ClubEvent | null>(null);
+  const [params, setParams] = useSearchParams();
+  // Deep link: /events?event=<id> opens that event (from chat, notifications, crew chats).
+  useEffect(() => {
+    const id = params.get('event');
+    if (!id) return;
+    const ev = CLUB_EVENTS.find((e) => e.id === id);
+    if (ev) {
+      setSelected(ev);
+      const next = new URLSearchParams(params);
+      next.delete('event');
+      setParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, CLUB_EVENTS.length]);
   /** Shared RSVP store — synced with the feed event rail (localStorage-backed). */
   useRsvps(); // re-render on RSVP changes
   const v = useStore();
@@ -269,6 +285,11 @@ export default function Events() {
           <p className="hero-fade mt-4 max-w-[52ch] text-[15px] leading-relaxed text-white/85">
             {visible.length} {visible.length === 1 ? 'event' : 'events'}. {new Set(visible.map((e) => e.country || e.location)).size} {new Set(visible.map((e) => e.country || e.location)).size === 1 ? 'country' : 'countries'}. One club. Flights, stays and paddock passes — bundled for members.
           </p>
+          {nextEvent && (
+            <div className="hero-fade mt-5">
+              <Countdown startDate={nextEvent.startDate} />
+            </div>
+          )}
           <div className="hero-fade mt-6 flex flex-wrap items-center gap-3">
             <button
               onClick={scrollToGrid}

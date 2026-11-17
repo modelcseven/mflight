@@ -1,0 +1,24 @@
+{
+  "id": "/",
+  "name": "MFlight — BMW Car Club Europe",
+  "short_name": "MFlight",
+  "description": "The members' app of BMW Car Club Europe: club feed, garages, events, Pit Lane marketplace and private chat.",
+  "start_url": "/dashboard?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#07090D",
+  "theme_color": "#07090D",
+  "categories": ["social", "lifestyle", "sports"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Messages", "url": "/messages", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "The Grid", "short_name": "Events", "url": "/events", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Pit Lane", "short_name": "Market", "url": "/parts", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

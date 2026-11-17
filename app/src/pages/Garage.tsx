@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CarFront } from 'lucide-react';
 import { CARS } from '@/lib/data';
@@ -18,6 +19,8 @@ export default function Garage() {
   useStore();
   const mineCount = CARS.filter((c) => c.ownerId === member?.id).length;
   const [tab, setTab] = useState<'mine' | 'club'>(mineCount ? 'mine' : 'club');
+  const [params] = useSearchParams();
+  const addOpen = params.get('add') === '1';
   const list = tab === 'mine' ? CARS.filter((c) => c.ownerId === member?.id) : CARS;
 
   return (
@@ -37,7 +40,7 @@ export default function Garage() {
           </p>
         </div>
         <div className="ml-auto">
-          <AddCarDialog />
+          <AddCarDialog defaultOpen={addOpen} />
         </div>
       </div>
 

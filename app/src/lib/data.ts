@@ -142,7 +142,7 @@ export interface MemberProfile {
     marketplace: boolean;
     emailNotifications: boolean;
   };
-  privacy: { publicProfile: boolean; publicGarage: boolean };
+  privacy: { publicProfile: boolean; publicGarage: boolean; allowMessages?: boolean };
   role: Role;
   roleLabel: string;
   permissions: AdminArea[];

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CalendarDays, Car, ImagePlus, Loader2, SendHorizonal, X } from 'lucide-react';
@@ -26,7 +26,7 @@ const MODE_PLACEHOLDER: Record<ComposerMode, string> = {
  * Post composer: avatar + input + quick-action buttons (Add Car / Photo / Event).
  * Submitting calls `onPost` which prepends to the feed.
  */
-export default function Composer({ onPost }: { onPost: (text: string, mode: ComposerMode, image?: string) => Promise<void> }) {
+export default function Composer({ onPost, autoFocus = false }: { onPost: (text: string, mode: ComposerMode, image?: string) => Promise<void>; autoFocus?: boolean }) {
   const { member } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -37,6 +37,17 @@ export default function Composer({ onPost }: { onPost: (text: string, mode: Comp
   const [image, setImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Opened from the tab bar's + button: bring the composer into view and focus it.
+  useEffect(() => {
+    if (!autoFocus) return;
+    const t = window.setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      inputRef.current?.focus();
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [autoFocus]);
 
   const onFile = async (f?: File) => {
     if (!f) return;
@@ -54,8 +65,7 @@ export default function Composer({ onPost }: { onPost: (text: string, mode: Comp
 
   const pickMode = (m: Exclude<ComposerMode, 'post'>) => {
     if (m === 'car') {
-      navigate('/garage');
-      toast('Add a new car from your garage', { title: 'Virtual Garage' });
+      navigate('/garage?add=1');
       return;
     }
     if (m === 'photo') {
@@ -84,6 +94,7 @@ export default function Composer({ onPost }: { onPost: (text: string, mode: Comp
 
   return (
     <motion.section
+      ref={sectionRef}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}

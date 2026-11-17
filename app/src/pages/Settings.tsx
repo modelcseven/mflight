@@ -6,6 +6,8 @@ import {
   Bell, CreditCard, KeyRound, Link2, Loader2, Lock, Mail, ShieldCheck, Trash2, UserCog, Eye,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { chatApi } from '@/lib/chat';
+import type { ChatPeer } from '@/lib/chat';
 import { useAuth } from '@/lib/auth';
 import { setProfile, useStore } from '@/lib/store';
 import { useToast } from '@/lib/toast';
@@ -69,9 +71,9 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={cn('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors', checked ? 'bg-bmw-blue' : 'bg-silver-light')}
+        className={cn('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:-inset-3 after:content-[""]', checked ? 'bg-bmw-blue' : 'bg-silver-light')}
       >
-        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />
+        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-[#fff] shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />
       </button>
     </label>
   );
@@ -321,11 +323,54 @@ function PrivacyTab() {
     }
   };
   return (
+    <div className="space-y-6">
     <Card title="Privacy" description="Control what other members can see.">
       <div className="divide-y divide-border">
         <Toggle checked={p.publicProfile} onChange={(v) => save('publicProfile', v)} label="Show my location" hint="When off, other members see your name but not your city." />
         <Toggle checked={p.publicGarage} onChange={(v) => save('publicGarage', v)} label="Public garage" hint="When off, your cars are only visible to you and club staff." />
+        <Toggle checked={p.allowMessages !== false} onChange={(v) => save('allowMessages', v)} label="Allow new message requests" hint="When off, members you haven’t chatted with can’t start a private chat with you. Existing chats keep working." />
       </div>
+    </Card>
+    <BlockedMembers />
+    </div>
+  );
+}
+
+function BlockedMembers() {
+  const { toast } = useToast();
+  const [list, setList] = useState<ChatPeer[] | null>(null);
+  useEffect(() => {
+    chatApi.blocks().then((r) => setList(r.blocks)).catch(() => setList([]));
+  }, []);
+  const unblock = async (id: string) => {
+    try {
+      await chatApi.unblock(id);
+      setList((l) => (l ?? []).filter((x) => x.id !== id));
+      toast('Unblocked.');
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
+  return (
+    <Card title="Blocked members" description="Blocked members can’t message you and you can’t message them.">
+      {list === null ? (
+        <Loader2 size={18} className="animate-spin text-ink-faint" />
+      ) : list.length === 0 ? (
+        <p className="text-sm text-ink-muted">You haven’t blocked anyone.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {list.map((b) => (
+            <div key={b.id} className="flex min-h-[60px] items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 font-display text-sm font-bold text-ink">{b.initials}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink">{b.name}</span>
+                {b.location && <span className="block truncate text-xs text-ink-muted">{b.location}</span>}
+              </span>
+              <button onClick={() => unblock(b.id)} className="h-10 rounded-xl border border-border px-4 text-sm font-semibold text-ink hover:border-bmw-blue">Unblock</button>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -497,10 +542,10 @@ export default function Settings() {
         <p className="mt-1 text-sm text-ink-muted">{MEMBER_PROFILE.email} · {MEMBER_PROFILE.membershipNumber}</p>
       </motion.div>
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible" aria-label="Settings sections">
+        <nav className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0" aria-label="Settings sections">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
-              className={cn('flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors',
+              className={cn('flex min-h-[44px] shrink-0 items-center gap-2.5 rounded-xl px-3.5 text-sm font-semibold transition-colors',
                 tab === id ? 'bg-bmw-blue-light text-bmw-blue' : 'text-ink-muted hover:bg-white hover:text-ink')}>
               <Icon size={16} /> {label}
             </button>

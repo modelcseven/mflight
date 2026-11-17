@@ -79,7 +79,7 @@ router.patch('/preferences', ah(async (req, res) => {
 }));
 
 router.patch('/privacy', ah(async (req, res) => {
-  const keys = ['publicProfile', 'publicGarage'];
+  const keys = ['publicProfile', 'publicGarage', 'allowMessages'];
   const privacy = { ...req.user.privacy };
   for (const k of keys) if (k in req.body) privacy[k] = bool(req.body[k]);
   await q('UPDATE users SET privacy=$2 WHERE id=$1', [req.user.id, privacy]);

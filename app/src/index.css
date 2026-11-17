@@ -4,69 +4,134 @@
 
 @layer base {
   :root {
-    --brand: 0 102 177;
-    --brand-dark: 0 85 160;
-    --brand-light: 230 240 248;
+    /* Light theme: white, BMW blue, light blue, red */
+    --brand: 28 105 212;
+    --brand-dark: 23 87 176;
+    --brand-light: 232 241 252;
+    --sky-c: 107 184 240;
     --gold: 201 162 39;
+    --gold-dark: 138 109 26;
+    --gold-light: 247 239 215;
+    --hot: 226 35 26;          /* main accent: red in light, gold in dark */
+    --on-hot: 255 255 255;
+    --m-red: 226 35 26;
+    --m-red-light: 253 231 229;
+    --ink: 11 18 32;
+    --ink-dark: 3 7 18;
+    --ink-muted: 74 85 104;
+    --ink-faint: 98 109 125;
+    --bg-app: 244 246 250;
+    --surface: 255 255 255;
+    --surface-2: 233 239 246;
+    --line: 220 227 236;
+    --silver-light: 232 234 238;
+    --navbar: 255 255 255;
+
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 220 49% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 220 49% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 205 100% 35%;
-    --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --popover-foreground: 220 49% 9%;
+    --primary: 215 77% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 36% 94%;
+    --secondary-foreground: 220 49% 9%;
+    --muted: 214 36% 94%;
+    --muted-foreground: 217 17% 35%;
+    --accent: 214 36% 94%;
+    --accent-foreground: 220 49% 9%;
+    --destructive: 3 79% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 27% 89%;
+    --input: 214 27% 86%;
+    --ring: 215 77% 47%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 217 17% 35%;
+    --sidebar-primary: 215 77% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 36% 94%;
+    --sidebar-accent-foreground: 220 49% 9%;
+    --sidebar-border: 214 27% 89%;
+    --sidebar-ring: 215 77% 47%;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* Dark theme: "Night Pit Lane" */
+    --sky-c: 61 139 255;
+    --gold-dark: 226 185 59;
+    --gold-light: 42 35 12;
+    --hot: 226 185 59;
+    --on-hot: 26 20 5;
+    --m-red: 255 92 84;
+    --m-red-light: 52 18 18;
+    --ink: 243 245 248;
+    --ink-dark: 3 5 8;
+    --ink-muted: 163 172 186;
+    --ink-faint: 136 146 162;
+    --bg-app: 7 9 13;
+    --surface: 16 20 27;
+    --surface-2: 23 28 37;
+    --line: 35 42 54;
+    --silver-light: 35 42 54;
+    --navbar: 10 13 18;
+
+    --background: 220 30% 4%;
+    --foreground: 216 23% 96%;
+    --card: 218 26% 8.4%;
+    --card-foreground: 216 23% 96%;
+    --popover: 218 26% 8.4%;
+    --popover-foreground: 216 23% 96%;
+    --primary: 216 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 23% 12%;
+    --secondary-foreground: 216 23% 96%;
+    --muted: 220 23% 12%;
+    --muted-foreground: 217 13% 68%;
+    --accent: 220 23% 12%;
+    --accent-foreground: 216 23% 96%;
+    --destructive: 3 90% 66%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 21% 17%;
+    --input: 218 19% 21%;
+    --ring: 216 80% 60%;
+    --sidebar-background: 218 26% 8.4%;
+    --sidebar-foreground: 217 13% 68%;
+    --sidebar-primary: 216 80% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 23% 12%;
+    --sidebar-accent-foreground: 216 23% 96%;
+    --sidebar-border: 218 21% 17%;
+    --sidebar-ring: 216 80% 60%;
   }
+
+  /* Existing screens use white/slate surfaces: map them onto the dark palette. */
+  .dark .bg-white,
+  .dark .focus\:bg-white:focus { background-color: rgb(var(--surface)); }
+  .dark .bg-white\/90 { background-color: rgb(var(--surface) / 0.9); }
+  .dark .bg-white\/80 { background-color: rgb(var(--surface) / 0.8); }
+  .dark .bg-white\/70 { background-color: rgb(var(--surface) / 0.7); }
+  .dark .bg-white\/95 { background-color: rgb(var(--surface) / 0.95); }
+  .dark .bg-white\/85 { background-color: rgb(var(--surface) / 0.85); }
+  .dark .bg-white\/75 { background-color: rgb(var(--surface) / 0.75); }
+  .dark .bg-white\/60 { background-color: rgb(var(--surface) / 0.60); }
+  .dark .bg-white\/50 { background-color: rgb(var(--surface) / 0.50); }
+  .dark .bg-slate-50,
+  .dark .hover\:bg-slate-50:hover { background-color: rgb(var(--surface-2)); }
+  .dark .bg-slate-100,
+  .dark .hover\:bg-slate-100:hover { background-color: rgb(var(--surface-2)); }
+  .dark .bg-slate-200 { background-color: rgb(var(--line)); }
+  .dark .text-slate-500, .dark .text-slate-600 { color: rgb(var(--ink-muted)); }
+  .dark .text-slate-700, .dark .text-slate-800, .dark .text-slate-900 { color: rgb(var(--ink)); }
+  .dark .border-slate-200, .dark .border-slate-100 { border-color: rgb(var(--line)); }
+  .dark .shadow-card { box-shadow: 0 1px 0 rgba(255,255,255,0.02), 0 10px 30px -18px rgba(0,0,0,0.8); }
+  .dark .shadow-elevated, .dark .shadow-modal { box-shadow: 0 24px 60px -20px rgba(0,0,0,0.85); }
+  .dark .shimmer { background: rgb(var(--surface-2)); }
+  .dark .shimmer::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+  .dark img[src$=".svg"].invert-on-dark { filter: invert(1); }
 }
 
 @layer base {
@@ -80,11 +145,14 @@
     @apply bg-bg-app text-ink antialiased;
   }
   h1, h2, h3, h4 {
-    font-family: 'Manrope', sans-serif;
-    letter-spacing: -0.02em;
+    font-family: 'Saira Condensed', 'Manrope', sans-serif;
+    letter-spacing: 0.005em;
   }
+  html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  button, a, [role="button"] { touch-action: manipulation; }
+  input, select, textarea { font-size: max(16px, 1em); } /* stops iOS zooming into fields */
   ::selection {
-    background: rgba(0, 102, 177, 0.18);
+    background: rgb(var(--brand) / 0.25);
   }
   .font-mono,
   code,
@@ -95,8 +163,20 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Saira Condensed', 'Manrope', sans-serif;
+    letter-spacing: 0.01em;
   }
+  .font-race {
+    font-family: 'Saira Condensed', sans-serif;
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pt-safe { padding-top: var(--safe-top); }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .tap { min-height: 44px; min-width: 44px; }
   .text-balance {
     text-wrap: balance;
   }
@@ -165,4 +245,29 @@
       transform: translateX(100%);
     }
   }
+}
+/* Phones: 16px form text stops iOS Safari auto-zooming into fields. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+}
+
+/* Admin tables → stacked cards on phones (labels come from the column headers). */
+@media (max-width: 767px) {
+  .mtable thead { display: none; }
+  .mtable table, .mtable tbody, .mtable tr { display: block; width: 100%; }
+  .mtable tbody > tr { padding: 12px 14px; }
+  .mtable tbody > tr > td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 5px 0 !important; text-align: right; min-height: 36px;
+  }
+  .mtable tbody > tr > td::before {
+    content: attr(data-label); flex-shrink: 0; text-align: left;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgb(var(--ink-faint));
+  }
+  .mtable tbody > tr > td:first-child { display: block; text-align: left; padding-bottom: 8px !important; }
+  .mtable tbody > tr > td:first-child::before,
+  .mtable tbody > tr > td[data-label=""]::before { display: none; }
+  .mtable tbody > tr > td[data-label=""] { justify-content: flex-end; }
+  .mtable tbody > tr > td > * { max-width: 100%; }
 }

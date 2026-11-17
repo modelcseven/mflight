@@ -40,10 +40,10 @@ function Field({
 /**
  * Add-car (or edit-car when `car` is given) dialog. Saves to the API, supports photo uploads.
  */
-export default function AddCarDialog({ car, trigger }: { car?: Car; trigger?: ReactNode }) {
+export default function AddCarDialog({ car, trigger, defaultOpen = false }: { car?: Car; trigger?: ReactNode; defaultOpen?: boolean }) {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [saving, setSaving] = useState(false);
   const [photos, setPhotos] = useState<string[]>(car?.photos ?? []);
   const [uploading, setUploading] = useState(false);

@@ -4,6 +4,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { api } from './api';
+import { setBrandColors } from './theme';
 import {
   CARS, CLUB_EVENTS, MARKETPLACE_LISTINGS, MEMBERS, MEMBER_CITIES, MEMBER_GEO, MEMBER_PROFILE, NOTIFICATIONS, POSTS,
   SETTINGS, TIERS,
@@ -81,21 +82,13 @@ const hexToRgb = (hex: string): [number, number, number] | null => {
   const n = parseInt(m[1], 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-const mix = (c: [number, number, number], t: number, to: number) => c.map((v) => Math.round(v + (to - v) * t)).join(' ');
 
 /** Applies club branding (title, primary/accent colours, favicon) from settings. */
 export function applyBranding(s: PublicSettings | undefined) {
   if (!s?.club) return;
   document.title = `${s.club.name} — ${s.club.clubName}`;
-  const root = document.documentElement.style;
-  const brand = hexToRgb(s.club.primaryColor || '');
-  if (brand) {
-    root.setProperty('--brand', brand.join(' '));
-    root.setProperty('--brand-dark', mix(brand, 0.17, 0));
-    root.setProperty('--brand-light', mix(brand, 0.9, 255));
-  }
-  const gold = hexToRgb(s.club.accentColor || '');
-  if (gold) root.setProperty('--gold', gold.join(' '));
+  // Brand blue is recomputed per light/dark theme in lib/theme.ts.
+  setBrandColors(hexToRgb(s.club.primaryColor || ''), hexToRgb(s.club.accentColor || ''));
   const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (icon && s.club.logoUrl) icon.href = s.club.logoUrl;
 }

@@ -5,7 +5,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['Manrope', 'sans-serif'],
+        display: ['"Saira Condensed"', 'Manrope', 'sans-serif'],
+        race: ['"Saira Condensed"', 'sans-serif'],
         sans: ['Inter', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
@@ -21,27 +22,37 @@ module.exports = {
         },
         'bmw-blue-light': 'rgb(var(--brand-light) / <alpha-value>)',
         'm-red': {
-          DEFAULT: '#E10600',
+          DEFAULT: 'rgb(var(--m-red) / <alpha-value>)',
           dark: '#B00500',
-          light: '#FDE7E5',
+          light: 'rgb(var(--m-red-light) / <alpha-value>)',
         },
-        sky: '#8FC1E8',
+        sky: 'rgb(var(--sky-c) / <alpha-value>)',
         gold: {
           DEFAULT: 'rgb(var(--gold) / <alpha-value>)',
-          dark: '#8A6D1A',
-          light: '#F7EFD7',
+          dark: 'rgb(var(--gold-dark) / <alpha-value>)',
+          light: 'rgb(var(--gold-light) / <alpha-value>)',
         },
+        hot: {
+          DEFAULT: 'rgb(var(--hot) / <alpha-value>)',
+          on: 'rgb(var(--on-hot) / <alpha-value>)',
+        },
+        surface: {
+          DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+          2: 'rgb(var(--surface-2) / <alpha-value>)',
+        },
+        line: 'rgb(var(--line) / <alpha-value>)',
+        navbar: 'rgb(var(--navbar) / <alpha-value>)',
         silver: {
           DEFAULT: '#C0C6CE',
           dark: '#8A919B',
-          light: '#E8EAEE',
+          light: 'rgb(var(--silver-light) / <alpha-value>)',
         },
-        'bg-app': '#F8FAFC',
+        'bg-app': 'rgb(var(--bg-app) / <alpha-value>)',
         ink: {
-          DEFAULT: '#111827',
-          dark: '#030712',
-          muted: '#64748B',
-          faint: '#94A3B8',
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          dark: 'rgb(var(--ink-dark) / <alpha-value>)',
+          muted: 'rgb(var(--ink-muted) / <alpha-value>)',
+          faint: 'rgb(var(--ink-faint) / <alpha-value>)',
         },
         success: '#22c55e',
         warning: '#D97706',

@@ -90,7 +90,7 @@ export default function Overview() {
         description={MEMBER_PROFILE.role === 'chapter_lead' ? `Member figures are for the ${MEMBER_PROFILE.chapterCountry ?? 'your'} chapter.` : 'Here is how the club is doing.'}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat label="Members" value={s.members} sub={`${s.active} active · +${s.new_30d} in 30 days`} icon={Users} onClick={can('users') ? () => navigate('/admin/users') : undefined} />
         <Stat label="Upcoming events" value={s.upcoming_events} sub="Not cancelled" icon={CalendarDays} tone="success" onClick={can('events') ? () => navigate('/admin/events') : undefined} />
         <Stat label="Active listings" value={s.active_listings} sub={`${s.pending_listings} awaiting review`} icon={Tag} tone="warning" onClick={can('marketplace') ? () => navigate('/admin/marketplace') : undefined} />

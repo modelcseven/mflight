@@ -15,6 +15,9 @@ import Profile from '@/pages/Profile';
 import PartStore from '@/pages/PartStore';
 import Settings from '@/pages/Settings';
 const Map = lazy(() => import('@/pages/Map'));
+const Messages = lazy(() => import('@/pages/Messages'));
+const Conversation = lazy(() => import('@/pages/Conversation'));
+const Podium = lazy(() => import('@/pages/Podium'));
 const Admin = lazy(() => import('@/pages/Admin'));
 
 export default function App() {
@@ -65,6 +68,9 @@ export default function App() {
         <Route path="/parts" element={<PartStore />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/messages" element={<Suspense fallback={<FullPageLoader />}><Messages /></Suspense>} />
+        <Route path="/messages/:id" element={<Suspense fallback={<FullPageLoader />}><Conversation /></Suspense>} />
+        <Route path="/podium" element={<Suspense fallback={<FullPageLoader />}><Podium /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

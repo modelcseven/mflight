@@ -375,6 +375,11 @@ router.get('/reports', requireArea('moderation'), ah(async (req, res) => {
     else if (r.target_type === 'listing') preview = (await one('SELECT title FROM listings WHERE id=$1', [r.target_id]))?.title;
     else if (r.target_type === 'user') { const u = await one('SELECT first_name,last_name FROM users WHERE id=$1', [r.target_id]); preview = u && `${u.first_name} ${u.last_name}`; }
     else if (r.target_type === 'car') preview = (await one("SELECT data->>'model' AS m FROM cars WHERE id=$1", [r.target_id]))?.m;
+    else if (r.target_type === 'message') {
+      // Only the reported message itself is shown to moderators — never the rest of the conversation.
+      const m = await one("SELECT m.body, trim(u.first_name || ' ' || u.last_name) AS who FROM messages m LEFT JOIN users u ON u.id=m.sender_id WHERE m.id=$1", [r.target_id]);
+      preview = m ? `${m.who}: ${m.body || '(deleted)'}` : '(deleted)';
+    }
     out.push({ id: r.id, targetType: r.target_type, targetId: r.target_id, reason: r.reason, status: r.status, createdAt: r.created_at,
       reporterName: r.first_name ? `${r.first_name} ${r.last_name}` : 'Deleted user', preview: preview ?? '(content removed)' });
   }
@@ -390,7 +395,9 @@ router.patch('/reports/:id', requireArea('moderation'), ah(async (req, res) => {
     if (table) await q(`UPDATE ${table} SET hidden=true WHERE id=$1`, [r.target_id]);
     if (r.target_type === 'listing') await q("UPDATE listings SET status='Rejected' WHERE id=$1", [r.target_id]);
     if (r.target_type === 'user') await q("UPDATE users SET status='Suspended', token_version=token_version+1 WHERE id=$1 AND role='member'", [r.target_id]);
+    if (r.target_type === 'message') await q("UPDATE messages SET deleted_at=now(), body='', attachment=NULL WHERE id=$1", [r.target_id]);
   } else if (action === 'delete') {
+    if (r.target_type === 'message') await q("UPDATE messages SET deleted_at=now(), body='', attachment=NULL WHERE id=$1", [r.target_id]);
     const table = { post: 'posts', comment: 'comments', car: 'cars', listing: 'listings' }[r.target_type];
     if (table) await q(`DELETE FROM ${table} WHERE id=$1`, [r.target_id]);
   }

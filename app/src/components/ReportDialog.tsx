@@ -8,7 +8,7 @@ const REASONS = ['Spam or advertising', 'Harassment or hate', 'Inappropriate con
 
 export default function ReportDialog({
   targetType, targetId, onClose,
-}: { targetType: 'post' | 'comment' | 'listing' | 'user' | 'car'; targetId: string; onClose: () => void }) {
+}: { targetType: 'post' | 'comment' | 'listing' | 'user' | 'car' | 'message'; targetId: string; onClose: () => void }) {
   const { toast } = useToast();
   const [reason, setReason] = useState(REASONS[0]);
   const [details, setDetails] = useState('');

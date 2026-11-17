@@ -138,7 +138,7 @@ export default function EventModal({
             transition={{ duration: 0.3, delay: 0.15, ease: 'easeOut' }}
             className="mt-6 rounded-xl border border-bmw-blue/10 bg-bmw-blue-light p-5"
           >
-            <h4 className="font-display text-base font-bold text-ink-dark">MFlight member package</h4>
+            <h4 className="font-display text-base font-bold text-ink">MFlight member package</h4>
             <motion.ul
               initial="hidden"
               animate="show"

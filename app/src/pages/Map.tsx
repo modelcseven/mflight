@@ -111,7 +111,7 @@ export default function Map() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6"
+      className="mx-auto max-w-6xl space-y-8"
     >
       {/* Header */}
       <motion.div variants={item}>

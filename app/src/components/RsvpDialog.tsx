@@ -175,7 +175,7 @@ export function RsvpForm({ event, onDone }: { event: ClubEvent; onDone?: () => v
         >
           <span
             className={cn(
-              'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
+              'absolute top-0.5 h-5 w-5 rounded-full bg-[#fff] shadow transition-all',
               draft.going ? 'left-[22px]' : 'left-0.5',
             )}
           />

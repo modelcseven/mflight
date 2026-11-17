@@ -1,5 +1,5 @@
 /** Shared building blocks for the admin dashboard. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -33,7 +33,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <div className="mb-6 flex flex-wrap items-end gap-3">
       <div className="min-w-0">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">{title}</h1>
+        <h1 className="font-race text-3xl uppercase text-ink">{title}</h1>
         {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
       </div>
       {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
@@ -45,12 +45,12 @@ export function Panel({ title, actions, children, className, pad = true }: { tit
   return (
     <section className={cn('rounded-2xl border border-border bg-white shadow-card', className)}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3.5">
+        <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3.5 sm:px-5">
           {title && <h2 className="font-display text-sm font-extrabold uppercase tracking-[0.06em] text-ink">{title}</h2>}
           {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={pad ? 'p-5' : ''}>{children}</div>
+      <div className={pad ? 'p-4 sm:p-5' : ''}>{children}</div>
     </section>
   );
 }
@@ -110,7 +110,7 @@ export function Btn({
       disabled={busy || rest.disabled}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-        size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2.5 text-sm',
+        size === 'sm' ? 'min-h-[40px] px-3 py-1.5 text-xs md:min-h-0 md:px-2.5' : 'min-h-[44px] px-4 py-2.5 text-sm md:min-h-0',
         tone === 'primary' && 'bg-bmw-blue text-white hover:bg-bmw-blue-dark',
         tone === 'ghost' && 'border border-border bg-white text-ink hover:border-bmw-blue/40 hover:text-bmw-blue',
         tone === 'danger' && 'border border-danger/30 bg-white text-danger hover:bg-danger/5',
@@ -126,7 +126,7 @@ export function Btn({
 }
 
 export const inputCls =
-  'h-10 w-full rounded-xl border border-border bg-white px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue/15 disabled:bg-bg-app';
+  'h-11 w-full rounded-xl border border-border bg-white px-3 text-sm md:h-10 text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-bmw-blue focus:ring-2 focus:ring-bmw-blue/15 disabled:bg-bg-app';
 
 export function Field({ label, hint, children, className }: { label: string; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -152,9 +152,9 @@ export function Toggle({ checked, onChange, label, hint, disabled }: { checked: 
         aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cn('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50', checked ? 'bg-bmw-blue' : 'bg-silver-light')}
+        className={cn('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:-inset-3 after:content-[""] disabled:opacity-50', checked ? 'bg-bmw-blue' : 'bg-silver-light')}
       >
-        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />
+        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-[#fff] shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />
       </button>
     </div>
   );
@@ -183,7 +183,7 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
           onClick={() => onChange(o.id)}
           className={cn(
             'rounded-full px-3 py-1.5 text-xs font-bold transition-colors',
-            value === o.id ? 'bg-ink text-white' : 'bg-white text-ink-muted ring-1 ring-border hover:text-ink',
+            value === o.id ? 'bg-ink text-bg-app' : 'bg-white text-ink-muted ring-1 ring-border hover:text-ink',
           )}
         >
           {o.label}
@@ -194,11 +194,35 @@ export function FilterChips<T extends string>({ value, onChange, options }: { va
   );
 }
 
-/** Responsive table: horizontal scroll on small screens. */
+/**
+ * Responsive table: a normal table on tablets/desktop; on phones every row becomes a card
+ * and each cell is labelled with its column name (labels are filled in automatically).
+ */
 export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const label = () => {
+      const names = Array.from(root.querySelectorAll('thead th')).map((th) => th.textContent?.trim() ?? '');
+      root.querySelectorAll('tbody tr').forEach((tr) => {
+        let col = 0;
+        Array.from(tr.children).forEach((cell) => {
+          const td = cell as HTMLTableCellElement;
+          const span = td.colSpan || 1;
+          td.dataset.label = span > 1 ? '' : names[col] ?? '';
+          col += span;
+        });
+      });
+    };
+    label();
+    const mo = new MutationObserver(label);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
+    <div ref={ref} className="mtable md:overflow-x-auto">
+      <table className="w-full text-left text-sm md:min-w-[640px]">
         <thead className="border-b border-border bg-bg-app/70 text-[11px] uppercase tracking-[0.07em] text-ink-faint">
           <tr>
             {head.map((h, i) => (
@@ -244,14 +268,14 @@ export function Modal({ open, onClose, title, description, children, wide }: { o
 export function Stat({ label, value, sub, icon: Icon, tone = 'info', onClick }: { label: string; value: ReactNode; sub?: ReactNode; icon: React.ElementType; tone?: Tone; onClick?: () => void }) {
   const Comp = onClick ? 'button' : 'div';
   return (
-    <Comp onClick={onClick} className={cn('rounded-2xl border border-border bg-white p-5 text-left shadow-card', onClick && 'transition-shadow hover:shadow-elevated')}>
+    <Comp onClick={onClick} className={cn('min-w-0 rounded-2xl border border-border bg-white p-4 text-left shadow-card sm:p-5', onClick && 'transition-shadow hover:shadow-elevated')}>
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-muted">{label}</p>
         <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg ring-1', TONES[tone])}>
           <Icon size={16} />
         </span>
       </div>
-      <p className="mt-2 font-mono text-[28px] font-bold leading-none tabular-nums text-ink">{value}</p>
+      <p className="mt-2 truncate font-mono text-2xl font-bold leading-none tabular-nums text-ink sm:text-[28px]">{value}</p>
       {sub && <p className="mt-2 text-xs text-ink-muted">{sub}</p>}
     </Comp>
   );

@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { BadgeCheck, Flag, Heart, Loader2, Megaphone, MessageCircle, MoreHorizontal, Pin, SendHorizonal, Trash2 } from 'lucide-react';
+import { BadgeCheck, Flag, Heart, Loader2, Mail, Megaphone, MessageCircle, MoreHorizontal, Pin, SendHorizonal, Share2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { chatApi } from '@/lib/chat';
 import type { FeedPost } from '@/lib/data';
 import { MEMBER_PROFILE, POSTS, memberById, timeAgo } from '@/lib/data';
 import { api } from '@/lib/api';
@@ -34,6 +36,30 @@ export default function PostCard({ post }: { post: FeedPost }) {
   const [sending, setSending] = useState(false);
   const [liking, setLiking] = useState(false);
   const [report, setReport] = useState<{ type: 'post' | 'comment'; id: string } | null>(null);
+  const navigate = useNavigate();
+
+  const messageAuthor = async () => {
+    try {
+      const r = await chatApi.start(post.authorId);
+      navigate(`/messages/${r.conversation.id}`);
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
+
+  const share = async () => {
+    const url = `${window.location.origin}/dashboard`;
+    const text = `${author?.name ?? 'A member'} on ${document.title.split(' — ')[0]}: ${post.text.slice(0, 120)}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'MFlight', text, url });
+      else {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        toast('Copied to clipboard.');
+      }
+    } catch {
+      /* share sheet dismissed */
+    }
+  };
 
   const toggleLike = async () => {
     if (liking) return;
@@ -106,7 +132,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
   const [title, ...bodyLines] = post.isAnnouncement ? post.text.split('\n') : [];
 
   return (
-    <article className={cn('rounded-2xl border bg-white p-5 shadow-card sm:p-6', post.isAnnouncement ? 'border-gold/50' : 'border-border')}>
+    <article className={cn('rounded-3xl border bg-white p-4 shadow-card sm:p-6', post.isAnnouncement ? 'border-gold/50' : 'border-border')}>
       {(post.pinned || post.isAnnouncement) && (
         <p className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-gold-dark">
           {post.isAnnouncement ? <Megaphone size={13} /> : <Pin size={13} />}
@@ -129,7 +155,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="rounded-full p-1.5 text-ink-faint hover:bg-slate-100 hover:text-ink" aria-label="Post options">
+            <button className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-ink-faint hover:bg-slate-100 hover:text-ink" aria-label="Post options">
               <MoreHorizontal size={18} />
             </button>
           </DropdownMenuTrigger>
@@ -139,9 +165,14 @@ export default function PostCard({ post }: { post: FeedPost }) {
                 <Trash2 size={15} /> Delete post
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => setReport({ type: 'post', id: post.id })} className="cursor-pointer gap-2">
-                <Flag size={15} /> Report post
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={messageAuthor} className="min-h-[44px] cursor-pointer gap-2 rounded-lg">
+                  <Mail size={15} /> Message {author?.firstName ?? 'member'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setReport({ type: 'post', id: post.id })} className="min-h-[44px] cursor-pointer gap-2 rounded-lg">
+                  <Flag size={15} /> Report post
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -157,19 +188,22 @@ export default function PostCard({ post }: { post: FeedPost }) {
       )}
 
       {post.image && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-border">
-          <img src={post.image} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" />
+        <div className="-mx-4 mt-4 overflow-hidden border-y border-border sm:mx-0 sm:rounded-2xl sm:border">
+          <img src={post.image} alt="" className="aspect-[4/3] w-full object-cover sm:aspect-[16/9]" loading="lazy" />
         </div>
       )}
 
-      <footer className="mt-4 flex items-center gap-5 border-t border-border pt-3.5 text-[13px] font-medium text-ink-muted">
-        <button onClick={toggleLike} aria-pressed={!!post.likedByMe} className="flex items-center gap-1.5 transition-colors hover:text-m-red">
-          <Heart size={16} className={cn('text-m-red transition-transform', post.likedByMe && 'scale-110 fill-m-red')} />
+      <footer className="-mx-2 mt-2 flex items-center gap-1 pt-1 text-[14px] font-semibold text-ink-muted">
+        <button onClick={toggleLike} aria-pressed={!!post.likedByMe} aria-label={post.likedByMe ? 'Unlike' : 'Like'} className="flex h-11 items-center gap-1.5 rounded-full px-2.5 transition-colors hover:text-hot active:scale-95">
+          <Heart size={21} className={cn('text-hot transition-transform', post.likedByMe && 'scale-110 fill-hot')} />
           <span className="font-mono">{post.likes}</span>
         </button>
-        <button onClick={toggleComments} aria-expanded={open} className="flex items-center gap-1.5 transition-colors hover:text-bmw-blue">
-          <MessageCircle size={16} />
+        <button onClick={toggleComments} aria-expanded={open} aria-label="Comments" className="flex h-11 items-center gap-1.5 rounded-full px-2.5 transition-colors hover:text-bmw-blue">
+          <MessageCircle size={21} />
           <span className="font-mono">{post.comments}</span>
+        </button>
+        <button onClick={share} aria-label="Share" className="ml-auto flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:text-bmw-blue">
+          <Share2 size={20} />
         </button>
       </footer>
 
@@ -188,11 +222,11 @@ export default function PostCard({ post }: { post: FeedPost }) {
                 <p className="text-[13px] text-ink">{c.text}</p>
               </div>
               {c.authorId === MEMBER_PROFILE.id ? (
-                <button onClick={() => deleteComment(c.id)} aria-label="Delete comment" className="self-center p-1 text-ink-faint opacity-0 hover:text-danger group-hover:opacity-100">
+                <button onClick={() => deleteComment(c.id)} aria-label="Delete comment" className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-ink-faint hover:text-danger md:opacity-0 md:group-hover:opacity-100">
                   <Trash2 size={14} />
                 </button>
               ) : (
-                <button onClick={() => setReport({ type: 'comment', id: c.id })} aria-label="Report comment" className="self-center p-1 text-ink-faint opacity-0 hover:text-ink group-hover:opacity-100">
+                <button onClick={() => setReport({ type: 'comment', id: c.id })} aria-label="Report comment" className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-ink-faint hover:text-ink md:opacity-0 md:group-hover:opacity-100">
                   <Flag size={14} />
                 </button>
               )}
@@ -205,10 +239,10 @@ export default function PostCard({ post }: { post: FeedPost }) {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendComment()}
               placeholder="Write a comment…"
-              className="h-10 flex-1 rounded-xl border border-border bg-bg-app px-3.5 text-sm outline-none focus:border-bmw-blue focus:bg-white"
+              className="h-11 min-w-0 flex-1 rounded-full border border-border bg-bg-app px-4 text-sm outline-none focus:border-bmw-blue focus:bg-white"
             />
             <button onClick={sendComment} disabled={!text.trim() || sending} aria-label="Send comment"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-bmw-blue text-white disabled:opacity-40">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-hot text-hot-on disabled:opacity-40">
               {sending ? <Loader2 size={15} className="animate-spin" /> : <SendHorizonal size={15} />}
             </button>
           </div>

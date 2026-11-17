@@ -75,7 +75,7 @@ function RailCard({
 
         {/* Date badge + event cost */}
         <div className="absolute left-4 top-4 flex flex-col gap-2">
-          <span className="flex flex-col items-center rounded-xl bg-white/92 px-3.5 py-2 backdrop-blur">
+          <span className="flex flex-col items-center rounded-xl bg-surface/90 px-3.5 py-2 backdrop-blur">
             <span className="font-mono text-xl font-bold leading-none tabular-nums text-ink">{day}</span>
             <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gold-dark">{month}</span>
           </span>
@@ -146,7 +146,7 @@ function RailCard({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Directions to ${event.location}`}
-              className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-white/92 px-4 text-sm font-bold text-ink backdrop-blur transition-colors hover:bg-white active:scale-[0.98]"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-surface/90 px-4 text-sm font-bold text-ink backdrop-blur transition-colors hover:bg-white active:scale-[0.98]"
             >
               <Navigation size={15} className="text-bmw-blue" />
               <span className="hidden sm:inline">Directions</span>

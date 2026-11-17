@@ -13,6 +13,7 @@ import { router as authRouter } from './routes/auth.js';
 import { router as meRouter } from './routes/me.js';
 import { router as appRouter } from './routes/app.js';
 import { router as adminRouter } from './routes/admin.js';
+import { router as socialRouter } from './routes/social.js';
 import { scheduleJobs } from './jobs.js';
 import { mountLegal } from './legal.js';
 
@@ -30,7 +31,9 @@ app.use(
         'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
         'img-src': ["'self'", 'data:', 'blob:', 'https:'],
-        'connect-src': ["'self'"],
+        'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+        'worker-src': ["'self'"],
+        'manifest-src': ["'self'"],
         'form-action': ["'self'", 'https://checkout.stripe.com'],
         'upgrade-insecure-requests': config.secureCookies ? [] : null,
       },
@@ -73,6 +76,7 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/me', meRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api', socialRouter);
 app.use('/api', appRouter);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 
@@ -84,8 +88,14 @@ const staticDir = resolve(config.staticDir);
 if (existsSync(staticDir)) {
   app.use(express.static(staticDir, { index: false, maxAge: '1h', setHeaders: (res, p) => {
     if (p.includes(`${join('assets', '')}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    // App-update files must never be stale on phones.
+    if (/(sw\.js|manifest\.webmanifest|theme-init\.js)$/.test(p)) res.setHeader('Cache-Control', 'no-cache');
+    if (p.endsWith('sw.js')) res.setHeader('Service-Worker-Allowed', '/');
   } }));
-  app.get('*', (_req, res) => res.sendFile(join(staticDir, 'index.html')));
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(join(staticDir, 'index.html'));
+  });
 } else {
   console.warn(`[server] static dir ${staticDir} not found — API only`);
 }

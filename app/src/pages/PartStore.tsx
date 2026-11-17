@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { chatApi } from '@/lib/chat';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Flag, ImagePlus, Loader2, Plus, Search, ShoppingBag, Tag, Trash2 } from 'lucide-react';
+import { CheckCircle2, Flag, ImagePlus, Loader2, MessageCircle, Plus, Search, ShoppingBag, Tag, Trash2 } from 'lucide-react';
 import type { MarketplaceListing, Order } from '@/lib/data';
 import { MARKETPLACE_LISTINGS, MEMBER_PROFILE, SETTINGS, eur, memberById } from '@/lib/data';
 import { api, uploadImage } from '@/lib/api';
@@ -112,6 +114,35 @@ export default function PartStore() {
   const [buying, setBuying] = useState<MarketplaceListing | null>(null);
   const [deleting, setDeleting] = useState<MarketplaceListing | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  // Deep links: ?sell=1 opens the sell form, ?listing=<id> jumps to a listing.
+  useEffect(() => {
+    const sell = params.get('sell');
+    const lid = params.get('listing');
+    if (!sell && !lid) return;
+    if (sell) setSelling(true);
+    if (lid) {
+      setFocusId(lid);
+      window.setTimeout(() => document.getElementById(`listing-${lid}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+    }
+    const next = new URLSearchParams(params);
+    next.delete('sell');
+    next.delete('listing');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const messageSeller = async (sellerId: string) => {
+    try {
+      const r = await chatApi.start(sellerId);
+      navigate(`/messages/${r.conversation.id}`);
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
 
   const CATEGORIES = ['All', ...(SETTINGS.marketplace?.categories ?? [])];
   const CONDITIONS = ['All conditions', ...(SETTINGS.marketplace?.conditions ?? [])];
@@ -213,7 +244,7 @@ export default function PartStore() {
           {CONDITIONS.map((c) => (
             <button key={c} onClick={() => setCondition(c)}
               className={cn('rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
-                condition === c ? 'bg-ink text-white' : 'bg-bg-app text-ink-muted ring-1 ring-border hover:text-ink')}>
+                condition === c ? 'bg-ink text-bg-app' : 'bg-bg-app text-ink-muted ring-1 ring-border hover:text-ink')}>
               {c}
             </button>
           ))}
@@ -228,8 +259,8 @@ export default function PartStore() {
             const sold = l.status === 'Sold';
             const mine = l.sellerId === me;
             return (
-              <motion.article key={l.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}
-                className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-card transition-shadow hover:shadow-elevated">
+              <motion.article key={l.id} id={`listing-${l.id}`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}
+                className={cn('flex flex-col overflow-hidden rounded-2xl border bg-white shadow-card transition-shadow hover:shadow-elevated', focusId === l.id ? 'border-bmw-blue ring-2 ring-bmw-blue/40' : 'border-border')}>
                 <div className="relative aspect-[16/9] overflow-hidden bg-silver-light">
                   {l.image ? (
                     <img src={l.image} alt={l.title} loading="lazy" className="h-full w-full object-cover" />
@@ -241,7 +272,7 @@ export default function PartStore() {
                   </span>
                   {!mine && (
                     <button onClick={() => setReporting(l.id)} aria-label="Report listing"
-                      className="absolute right-3 top-3 rounded-full bg-white/90 p-1.5 text-ink-muted shadow-sm hover:text-ink">
+                      className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white shadow-sm backdrop-blur hover:bg-black/60">
                       <Flag size={13} />
                     </button>
                   )}
@@ -271,21 +302,27 @@ export default function PartStore() {
                     {mine ? (
                       <div className="flex gap-2">
                         {l.status === 'Active' && (
-                          <button onClick={() => markSold(l)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-bold text-ink hover:border-success/40 hover:text-success">
+                          <button onClick={() => markSold(l)} className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border px-3 text-[13px] font-bold text-ink hover:border-success/40 hover:text-success">
                             <CheckCircle2 size={14} /> Mark sold
                           </button>
                         )}
-                        <button onClick={() => setDeleting(l)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-3 py-2 text-xs font-bold text-danger hover:bg-danger/5">
+                        <button onClick={() => setDeleting(l)} className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-danger/30 px-3 text-[13px] font-bold text-danger hover:bg-danger/5">
                           <Trash2 size={14} /> Delete
                         </button>
                       </div>
                     ) : (
+                      <div className="flex gap-2">
+                      <button onClick={() => messageSeller(l.sellerId)} aria-label="Message seller"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-ink hover:border-bmw-blue hover:text-bmw-blue">
+                        <MessageCircle size={17} />
+                      </button>
                       <button disabled={sold} onClick={() => setBuying(l)}
-                        className={cn('inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors',
+                        className={cn('inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-[13px] font-bold transition-colors',
                           sold ? 'cursor-not-allowed bg-silver-light text-ink-faint' : 'bg-bmw-blue text-white hover:bg-bmw-blue-dark')}>
                         <ShoppingBag size={14} />
                         {sold ? 'No longer available' : SETTINGS.payments?.stripe ? `Buy now · ${eur(l.price)}` : 'Request to buy'}
                       </button>
+                      </div>
                     )}
                   </div>
                 </div>

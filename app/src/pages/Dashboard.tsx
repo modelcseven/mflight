@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, Car, ShoppingBag } from 'lucide-react';
 import type { FeedPost } from '@/lib/data';
@@ -32,6 +32,8 @@ export default function Dashboard() {
   );
 
   const posts = POSTS;
+  const [params] = useSearchParams();
+  const composeNow = params.get('compose') === '1';
 
   const handlePost = async (text: string, mode: ComposerMode, image?: string) => {
     const r = await api.post<{ post: FeedPost }>('/posts', { text, image, kind: mode });
@@ -90,7 +92,7 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="mx-auto w-full max-w-[1500px]">
       {/* Greeting */}
       <motion.header
         initial={{ opacity: 0, y: 12 }}
@@ -116,7 +118,7 @@ export default function Dashboard() {
         animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } } }}
         aria-label="Quick navigation"
-        className="mb-6 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-white p-2 shadow-card sm:gap-3 sm:p-2.5"
+        className="mb-6 hidden gap-2 overflow-x-auto rounded-2xl border border-border bg-white p-2 shadow-card sm:gap-3 sm:p-2.5 md:flex"
       >
         {[
           { to: '/events', label: 'Events', icon: Calendar },
@@ -145,7 +147,7 @@ export default function Dashboard() {
       {/* 12-col grid: feed (~65%) + right sidebar (~30%) */}
       <div className="grid grid-cols-12 gap-6 lg:gap-8">
         <div className="col-span-12 lg:col-span-9">
-          <Composer onPost={handlePost} />
+          <Composer onPost={handlePost} autoFocus={composeNow} />
 
           <div className="mt-6 space-y-5">
             {posts.length === 0 && (

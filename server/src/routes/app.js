@@ -148,7 +148,7 @@ router.delete('/comments/:id', ah(async (req, res) => {
 
 router.post('/reports', ah(async (req, res) => {
   const type = str(req.body.targetType, 20);
-  if (!['post', 'comment', 'listing', 'user', 'car'].includes(type)) throw bad('Unknown report type.');
+  if (!['post', 'comment', 'listing', 'user', 'car', 'message'].includes(type)) throw bad('Unknown report type.');
   const reason = str(req.body.reason, 500);
   if (!reason) throw bad('Tell us what is wrong.');
   await q('INSERT INTO reports(id,target_type,target_id,reporter_id,reason) VALUES ($1,$2,$3,$4,$5)',
