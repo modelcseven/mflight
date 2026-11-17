@@ -2,7 +2,7 @@
   "id": "/",
   "name": "MFlight — BMW Car Club Europe",
   "short_name": "MFlight",
-  "description": "The members' app of BMW Car Club Europe: club feed, garages, events, Pit Lane marketplace and private chat.",
+  "description": "The members' app of BMW Car Club Europe: club feed, garages, events, MFlight marketplace and private chat.",
   "start_url": "/dashboard?source=pwa",
   "scope": "/",
   "display": "standalone",
@@ -19,6 +19,6 @@
   "shortcuts": [
     { "name": "Messages", "url": "/messages", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "The Grid", "short_name": "Events", "url": "/events", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Pit Lane", "short_name": "Market", "url": "/parts", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "MFlight Store", "short_name": "Store", "url": "/parts", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

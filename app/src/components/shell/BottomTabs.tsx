@@ -10,7 +10,7 @@ const TABS = [
   { to: '/events', label: 'Grid', icon: Flag },
   null,
   { to: '/garage', label: 'Garage', icon: CarFront },
-  { to: '/parts', label: 'Pit Lane', icon: ShoppingBag },
+  { to: '/parts', label: 'MFlight', icon: ShoppingBag },
 ] as const;
 
 /** Phone tab bar: thumb-reach navigation with a raised “create” button in the middle. */
@@ -81,7 +81,7 @@ export default function BottomTabs() {
             {[
               { label: 'New post', hint: 'Text, photo or an event shout-out', icon: ImagePlus, to: '/dashboard?compose=1' },
               { label: 'Add a car to my garage', hint: 'Specs, mods and photos', icon: CarFront, to: '/garage?add=1' },
-              { label: 'Sell a part or car', hint: 'List it in Pit Lane', icon: Tag, to: '/parts?sell=1' },
+              { label: 'Sell a part or car', hint: 'List it in the MFlight store', icon: Tag, to: '/parts?sell=1' },
             ].map((a) => (
               <button
                 key={a.label}

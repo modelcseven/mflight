@@ -43,7 +43,7 @@ function AttachmentCard({ a, mine }: { a: ChatAttachment; mine: boolean }) {
     );
   }
   const to = attachmentLink(a);
-  const label = { car: 'From the garage', event: 'Event', listing: 'Pit Lane listing', image: '' }[a.type];
+  const label = { car: 'From the garage', event: 'Event', listing: 'MFlight listing', image: '' }[a.type];
   const Icon = a.type === 'car' ? CarFront : a.type === 'event' ? CalendarDays : ShoppingBag;
   const body = (
     <div className={cn('w-[240px] overflow-hidden rounded-2xl border', mine ? 'border-white/20 bg-white/10' : 'border-border bg-surface')}>
