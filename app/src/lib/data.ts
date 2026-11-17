@@ -22,6 +22,8 @@ export interface ClubMember {
   joinDate: string; // ISO
   avatarInitials: string;
   verified: boolean;
+  /** Club office set by a super admin (President, Vice President…) */
+  clubPosition?: string | null;
   stats: {
     cars: number;
     events: number;
@@ -130,6 +132,7 @@ export interface MemberProfile {
   location: string;
   joinDate: string; // ISO
   verified: boolean;
+  clubPosition?: string | null;
   stats: {
     cars: number;
     events: number;
@@ -175,6 +178,7 @@ export interface PublicSettings {
   events: { categories: string[]; defaultCapacity: number; maxGuests: number; maxCars: number; enableWaitlist: boolean };
   marketplace: { requireApproval: boolean; feePercent: number; categories: string[]; conditions: string[]; maxActivePerMember: number };
   membership: { numberPrefix: string };
+  positions?: { list: string[] };
   auth: { allowSignup: boolean; google: boolean; facebook: boolean };
   payments: { stripe: boolean };
   ai: { enabled: boolean };

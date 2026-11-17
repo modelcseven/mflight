@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BadgeCheck, Download, KeyRound, LogOut, ShieldOff, Trash2, UserPlus } from 'lucide-react';
 import { api, downloadFile } from '@/lib/api';
-import { MEMBER_PROFILE } from '@/lib/data';
+import { MEMBER_PROFILE, SETTINGS } from '@/lib/data';
 import type { Role } from '@/lib/data';
 import { useToast } from '@/lib/toast';
 import ConfirmDialog from '@/components/Confirm';
@@ -16,6 +16,7 @@ export interface AdminUser {
   location: string; joinDate: string; avatarInitials: string; verified: boolean; status: 'Active' | 'Pending' | 'Suspended';
   role: Role; roleLabel: string; tierId: string | null; chapterCountry: string | null; membershipExpires: string | null;
   emailVerified: boolean; totpEnabled: boolean; hasPassword: boolean; lastLoginAt: string | null; createdAt: string;
+  clubPosition?: string | null;
   stats: { cars: number; posts: number; events: number };
 }
 interface Meta {
@@ -142,11 +143,12 @@ function UserPanel({ user, meta, onClose, onChange, onDelete }: { user: AdminUse
   };
 
   return (
-    <SidePanel open onClose={onClose} title={user.name} description={`${user.membershipNumber} · joined ${fmtDate(user.joinDate)}`}>
+    <SidePanel open onClose={onClose} title={user.name} description={`${user.membershipNumber}${user.clubPosition ? ` · ${user.clubPosition}` : ""} · member since ${fmtDate(user.joinDate)}`}>
       <div className="space-y-6">
         <div className="flex flex-wrap gap-2">
           <Chip tone={statusTone(user.status)}>{user.status}</Chip>
           <Chip tone="info">{user.roleLabel}</Chip>
+          {user.clubPosition && <Chip tone="warning">{user.clubPosition}</Chip>}
           {user.verified && <Chip tone="info">Verified</Chip>}
           {user.totpEnabled && <Chip tone="success">2FA on</Chip>}
           {!user.emailVerified && <Chip tone="warning">Email unconfirmed</Chip>}
@@ -182,6 +184,14 @@ function UserPanel({ user, meta, onClose, onChange, onDelete }: { user: AdminUse
               ))}
             </select>
           </Field>
+        )}
+
+        {MEMBER_PROFILE.role === 'super_admin' ? (
+          <ClubStanding user={user} busy={busy} onSave={(body, msg) => patch(body, 'standing', msg)} />
+        ) : (
+          <p className="text-[12px] text-ink-muted">
+            Club position: <b className="text-ink">{user.clubPosition || 'None'}</b> · Joined the club: <b className="text-ink">{fmtDate(user.joinDate)}</b> · Only super admins can change these.
+          </p>
         )}
 
         <form
@@ -337,6 +347,40 @@ export default function UsersAdmin() {
           onDelete={(id) => { setData((d) => d && { users: d.users.filter((x) => x.id !== id) }); setSelected(null); }} />
       )}
       <InviteDialog open={inviting} onClose={() => setInviting(false)} meta={meta} onCreated={(u) => setData((d) => d && { users: [u, ...d.users] })} />
+    </div>
+  );
+}
+
+
+/** Super admins only: the member's club office (President, VP…) and the date they actually joined the club. */
+function ClubStanding({ user, busy, onSave }: { user: AdminUser; busy: string | null; onSave: (body: Record<string, unknown>, msg: string) => void }) {
+  const positions = SETTINGS.positions?.list ?? [];
+  const [pos, setPos] = useState(user.clubPosition ?? '');
+  const [joined, setJoined] = useState(user.joinDate);
+  useEffect(() => {
+    setPos(user.clubPosition ?? '');
+    setJoined(user.joinDate);
+  }, [user.clubPosition, user.joinDate]);
+  const dirty = pos !== (user.clubPosition ?? '') || joined !== user.joinDate;
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className="space-y-3 rounded-2xl border border-gold/40 bg-gold-light/40 p-4">
+      <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-gold-dark">Club standing · super admin</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Club position" hint={positions.length ? undefined : 'Add positions in Settings → Club positions.'}>
+          <select value={pos} onChange={(e) => setPos(e.target.value)} className={inputCls}>
+            <option value="">No position</option>
+            {positions.map((p) => <option key={p} value={p}>{p}</option>)}
+            {pos && !positions.includes(pos) && <option value={pos}>{pos} (removed from list)</option>}
+          </select>
+        </Field>
+        <Field label="Joined the club" hint={`Account created ${fmtDate(user.createdAt)}`}>
+          <input type="date" max={today} value={joined} onChange={(e) => setJoined(e.target.value)} className={inputCls} />
+        </Field>
+      </div>
+      <Btn size="sm" disabled={!dirty || !joined} busy={busy === 'standing'} onClick={() => onSave({ clubPosition: pos, joinDate: joined }, 'Club standing saved.')}>
+        Save club standing
+      </Btn>
     </div>
   );
 }

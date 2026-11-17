@@ -20,6 +20,9 @@ export const DEFAULT_SETTINGS = {
     autoSuspendExpired: false,
     numberPrefix: 'MFC-',
   },
+  positions: {
+    list: ['President', 'Vice President', 'Secretary', 'Treasurer', 'Events Director', 'Membership Director', 'Marketing Director', 'Webmaster'],
+  },
   events: {
     categories: ['Festival', 'Track Day', 'Tour', 'Rally', 'Lifestyle'],
     defaultCapacity: 40,
@@ -76,7 +79,7 @@ export const SECRET_FIELDS = {
 };
 
 /** Keys only super admins may change. */
-export const SUPER_ONLY_KEYS = ['auth', 'smtp', 'stripe', 'ai'];
+export const SUPER_ONLY_KEYS = ['auth', 'smtp', 'stripe', 'ai', 'positions'];
 
 export const MASK = '••••••••';
 
@@ -125,6 +128,7 @@ export async function publicSettings() {
     events: all.events,
     marketplace: all.marketplace,
     membership: { numberPrefix: all.membership.numberPrefix },
+    positions: { list: all.positions?.list ?? [] },
     auth: {
       allowSignup: all.auth.allowSignup,
       google: !!(all.auth.googleEnabled && all.auth.googleClientId && all.auth.googleClientSecret),

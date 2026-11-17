@@ -57,6 +57,13 @@ const SCHEMAS: Record<string, { title: string; description: string; fields: Fiel
       { key: 'autoSuspendExpired', label: 'Suspend members after the grace period', type: 'bool' },
     ],
   },
+  positions: {
+    title: 'Club positions',
+    description: 'Offices a super admin can give members (shown as a badge on their profile, posts and chats). Set them under Members → open a member → Club standing.',
+    fields: [
+      { key: 'list', label: 'Positions (one per line, in order of seniority)', type: 'list' },
+    ],
+  },
   events: {
     title: 'Events',
     description: 'Defaults for new events and RSVPs.',
@@ -135,6 +142,7 @@ const TABS = [
   { id: 'events', label: 'Events' },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'geo', label: 'Chapters & map' },
+  { id: 'positions', label: 'Club positions', superOnly: true },
   { id: 'auth', label: 'Sign-in', superOnly: true },
   { id: 'smtp', label: 'Email', superOnly: true },
   { id: 'stripe', label: 'Payments', superOnly: true },

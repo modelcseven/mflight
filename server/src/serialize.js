@@ -39,6 +39,7 @@ export function memberOut(u, counts, viewer) {
     avatarInitials: initials(u.first_name, u.last_name),
     avatarUrl: u.avatar_url || null,
     verified: u.verified,
+    clubPosition: u.club_position || null,
     role: u.role,
     tierId: u.tier_id,
     stats: stats(u, counts?.[u.id]),

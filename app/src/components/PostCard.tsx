@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BadgeCheck, Flag, Heart, Loader2, Mail, Megaphone, MessageCircle, MoreHorizontal, Pin, SendHorizonal, Share2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { chatApi } from '@/lib/chat';
+import PositionBadge from '@/components/PositionBadge';
 import type { FeedPost } from '@/lib/data';
 import { MEMBER_PROFILE, POSTS, memberById, timeAgo } from '@/lib/data';
 import { api } from '@/lib/api';
@@ -147,6 +148,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-sm font-semibold text-ink">{author?.name ?? 'Club member'}</span>
             {author?.verified && <BadgeCheck size={15} className="shrink-0 text-bmw-blue" />}
+            <PositionBadge position={author?.clubPosition} size="xs" />
             {author && <MembershipPlate number={author.membershipNumber} size="sm" />}
           </div>
           <p className="mt-0.5 text-xs text-ink-faint">

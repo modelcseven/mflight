@@ -30,13 +30,37 @@ function messageOut(m, viewerId) {
     body: deleted ? '' : m.body,
     attachment: deleted ? null : m.attachment ?? null,
     createdAt: iso(m.created_at),
-    mine: m.sender_id === viewerId,
+    mine: m.sender_id === viewerId && m.kind !== 'system',
     deleted,
+    kind: m.kind || 'text',
+    replyTo: m.reply_to
+      ? {
+          id: m.reply_to,
+          senderName: m.rm_sender_name || 'Member',
+          body: m.rm_deleted ? 'Message deleted' : (m.rm_body || (m.rm_attachment ? `Shared a ${m.rm_attachment}` : '')).slice(0, 140),
+        }
+      : null,
   };
 }
 
-const MSG_SELECT = `SELECT m.*, trim(u.first_name || ' ' || u.last_name) AS sender_name
-  FROM messages m LEFT JOIN users u ON u.id = m.sender_id`;
+const MSG_SELECT = `SELECT m.*, trim(u.first_name || ' ' || u.last_name) AS sender_name,
+    rm.body AS rm_body, rm.deleted_at AS rm_deleted, rm.attachment->>'type' AS rm_attachment,
+    trim(ru.first_name || ' ' || ru.last_name) AS rm_sender_name
+  FROM messages m
+  LEFT JOIN users u ON u.id = m.sender_id
+  LEFT JOIN messages rm ON rm.id = m.reply_to
+  LEFT JOIN users ru ON ru.id = rm.sender_id`;
+
+/** Posts a grey system line into a chat ("Alex added Sophie"). */
+async function systemMessage(conversationId, actorId, body) {
+  const m = await one(
+    "INSERT INTO messages(id,conversation_id,sender_id,body,kind) VALUES ($1,$2,$3,$4,'system') RETURNING created_at",
+    [newId('msg'), conversationId, actorId, body],
+  );
+  await q('UPDATE conversations SET last_message_at=$2 WHERE id=$1', [conversationId, m.created_at]);
+}
+
+const fullName = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || 'Member';
 
 async function isBlockedBetween(a, b) {
   return !!(await one('SELECT 1 FROM user_blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1)', [a, b]));
@@ -71,16 +95,16 @@ async function ensureCrews(userId) {
 }
 
 const LIST_SQL = `
-  SELECT c.*, me.status AS my_status, me.last_read_at AS my_read,
+  SELECT c.*, me.status AS my_status, me.last_read_at AS my_read, me.role AS my_role, me.muted AS my_muted, me.joined_at AS my_joined,
     e.title AS event_title, e.image AS event_image, e.start_date AS event_start,
     peer.id AS peer_id, peer.first_name AS peer_first, peer.last_name AS peer_last, peer.location AS peer_location,
     pm.status AS peer_status, pm.last_read_at AS peer_read,
     (SELECT count(*)::int FROM conversation_members x WHERE x.conversation_id=c.id AND x.status<>'left') AS member_count,
     (SELECT count(*)::int FROM messages m WHERE m.conversation_id=c.id AND m.created_at > me.last_read_at
-       AND m.sender_id IS DISTINCT FROM me.user_id AND m.deleted_at IS NULL) AS unread,
+       AND m.sender_id IS DISTINCT FROM me.user_id AND m.deleted_at IS NULL AND m.kind='text') AS unread,
     (SELECT count(*)::int FROM messages m WHERE m.conversation_id=c.id) AS message_count,
     lm.body AS lm_body, lm.created_at AS lm_at, lm.sender_id AS lm_sender, lm.deleted_at AS lm_deleted,
-    lm.attachment->>'type' AS lm_attachment, trim(lu.first_name || ' ' || lu.last_name) AS lm_sender_name,
+    lm.attachment->>'type' AS lm_attachment, lm.kind AS lm_kind, trim(lu.first_name || ' ' || lu.last_name) AS lm_sender_name,
     EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id=me.user_id AND b.blocked_id=peer.id)
                                          OR (b.blocker_id=peer.id AND b.blocked_id=me.user_id)) AS blocked
   FROM conversation_members me
@@ -95,16 +119,22 @@ const LIST_SQL = `
 function conversationOut(r, viewerId) {
   const direct = r.kind === 'direct';
   const peerName = direct ? `${r.peer_first ?? ''} ${r.peer_last ?? ''}`.trim() || 'Member' : null;
+  const group = r.kind === 'group';
   return {
     id: r.id,
     kind: r.kind,
-    title: direct ? peerName : r.event_title ? `${r.event_title}` : r.title,
+    title: direct ? peerName : group ? r.title : r.event_title ? `${r.event_title}` : r.title,
+    description: group ? r.description || '' : '',
+    myRole: r.my_role || 'member',
+    muted: !!r.my_muted,
     subtitle: direct
       ? r.peer_location || ''
-      : r.event_start
+      : group
+        ? `${r.member_count} members`
+        : r.event_start
         ? `Crew chat · ${new Date(r.event_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
         : 'Crew chat',
-    image: direct ? null : r.event_image || null,
+    image: direct ? null : group ? r.image || null : r.event_image || null,
     eventId: r.event_id,
     peer: direct && r.peer_id ? { id: r.peer_id, name: peerName, initials: initials(r.peer_first, r.peer_last), location: r.peer_location || '' } : null,
     memberCount: r.member_count,
@@ -115,7 +145,8 @@ function conversationOut(r, viewerId) {
       ? {
           body: r.lm_deleted ? 'Message deleted' : r.lm_body,
           senderName: r.lm_sender_name || 'Member',
-          mine: r.lm_sender === viewerId,
+          mine: r.lm_sender === viewerId && r.lm_kind !== 'system',
+          system: r.lm_kind === 'system',
           createdAt: iso(r.lm_at),
           attachmentType: r.lm_deleted ? null : r.lm_attachment,
         }
@@ -169,8 +200,8 @@ async function buildAttachment(a, userId) {
 router.get('/chats/unread', ah(async (req, res) => {
   const r = await one(
     `SELECT
-       COALESCE(sum(CASE WHEN me.status='active' THEN (SELECT count(*) FROM messages m WHERE m.conversation_id=me.conversation_id
-          AND m.created_at > me.last_read_at AND m.sender_id IS DISTINCT FROM me.user_id AND m.deleted_at IS NULL) ELSE 0 END),0)::int AS unread,
+       COALESCE(sum(CASE WHEN me.status='active' AND NOT me.muted THEN (SELECT count(*) FROM messages m WHERE m.conversation_id=me.conversation_id
+          AND m.created_at > me.last_read_at AND m.sender_id IS DISTINCT FROM me.user_id AND m.deleted_at IS NULL AND m.kind='text') ELSE 0 END),0)::int AS unread,
        count(*) FILTER (WHERE me.status='request' AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id=me.conversation_id))::int AS requests
      FROM conversation_members me WHERE me.user_id=$1 AND me.status<>'left'`,
     [req.user.id],
@@ -215,11 +246,14 @@ router.post('/chats', ah(async (req, res) => {
 
 router.get('/chats/:id', ah(async (req, res) => {
   const r = await loadConversation(req.params.id, req.user.id);
-  const rows = await many(`${MSG_SELECT} WHERE m.conversation_id=$1 ORDER BY m.created_at DESC LIMIT 150`, [r.id]);
+  // In groups you only see messages from after you joined (like WhatsApp).
+  const since = r.kind === 'group' ? r.my_joined : new Date(0);
+  const rows = await many(`${MSG_SELECT} WHERE m.conversation_id=$1 AND m.created_at >= $2 ORDER BY m.created_at DESC LIMIT 150`, [r.id, since]);
   if (r.my_status === 'active') await q('UPDATE conversation_members SET last_read_at=now() WHERE conversation_id=$1 AND user_id=$2', [r.id, req.user.id]);
   res.json({
     conversation: strip(conversationOut({ ...r, unread: 0 }, req.user.id)),
     messages: rows.reverse().map((m) => messageOut(m, req.user.id)),
+    reads: r.kind === 'direct' ? null : await memberReads(r.id, req.user.id),
   });
 }));
 
@@ -228,11 +262,16 @@ router.get('/chats/:id/messages', ah(async (req, res) => {
   const after = new Date(String(req.query.after || 0));
   const rows = await many(
     `${MSG_SELECT} WHERE m.conversation_id=$1 AND (m.created_at > $2 OR (m.deleted_at IS NOT NULL AND m.deleted_at > $2))
+       AND m.created_at >= $3
      ORDER BY m.created_at ASC LIMIT 200`,
-    [r.id, Number.isNaN(after.getTime()) ? new Date(0) : after],
+    [r.id, Number.isNaN(after.getTime()) ? new Date(0) : after, r.kind === 'group' ? r.my_joined : new Date(0)],
   );
   if (r.my_status === 'active' && rows.length) await q('UPDATE conversation_members SET last_read_at=now() WHERE conversation_id=$1 AND user_id=$2', [r.id, req.user.id]);
-  res.json({ messages: rows.map((m) => messageOut(m, req.user.id)), peerLastReadAt: r.kind === 'direct' ? iso(r.peer_read) : null });
+  res.json({
+    messages: rows.map((m) => messageOut(m, req.user.id)),
+    peerLastReadAt: r.kind === 'direct' ? iso(r.peer_read) : null,
+    reads: r.kind === 'direct' ? null : await memberReads(r.id, req.user.id),
+  });
 }));
 
 router.post('/chats/:id/messages', ah(async (req, res) => {
@@ -247,13 +286,19 @@ router.post('/chats/:id/messages', ah(async (req, res) => {
   if (!body && !attachment) throw bad('Type a message.');
   // Replying to a request accepts it.
   if (r.my_status === 'request') await q("UPDATE conversation_members SET status='active' WHERE conversation_id=$1 AND user_id=$2", [r.id, me.id]);
-  const m = await one(
-    'INSERT INTO messages(id,conversation_id,sender_id,body,attachment) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-    [newId('msg'), r.id, me.id, body, attachment],
+  let replyTo = null;
+  if (req.body.replyTo) {
+    const rm = await one('SELECT id FROM messages WHERE id=$1 AND conversation_id=$2', [str(req.body.replyTo, 80), r.id]);
+    if (rm) replyTo = rm.id;
+  }
+  const ins = await one(
+    'INSERT INTO messages(id,conversation_id,sender_id,body,attachment,reply_to) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at',
+    [newId('msg'), r.id, me.id, body, attachment, replyTo],
   );
-  await q('UPDATE conversations SET last_message_at=$2 WHERE id=$1', [r.id, m.created_at]);
-  await q('UPDATE conversation_members SET last_read_at=$3 WHERE conversation_id=$1 AND user_id=$2', [r.id, me.id, m.created_at]);
-  res.json({ message: messageOut({ ...m, sender_name: `${me.first_name} ${me.last_name}`.trim() }, me.id) });
+  await q('UPDATE conversations SET last_message_at=$2 WHERE id=$1', [r.id, ins.created_at]);
+  await q('UPDATE conversation_members SET last_read_at=$3 WHERE conversation_id=$1 AND user_id=$2', [r.id, me.id, ins.created_at]);
+  const m = await one(`${MSG_SELECT} WHERE m.id=$1`, [ins.id]);
+  res.json({ message: messageOut(m, me.id) });
 }));
 
 router.post('/chats/:id/accept', ah(async (req, res) => {
@@ -273,7 +318,192 @@ router.post('/chats/:id/decline', ah(async (req, res) => {
 
 router.post('/chats/:id/leave', ah(async (req, res) => {
   const r = await loadConversation(req.params.id, req.user.id);
-  await q("UPDATE conversation_members SET status='left' WHERE conversation_id=$1 AND user_id=$2", [r.id, req.user.id]);
+  await q("UPDATE conversation_members SET status='left', role='member' WHERE conversation_id=$1 AND user_id=$2", [r.id, req.user.id]);
+  if (r.kind === 'group') {
+    await systemMessage(r.id, req.user.id, `${fullName(req.user)} left`);
+    await ensureGroupAdmin(r.id);
+  }
+  res.json({ ok: true });
+}));
+
+router.post('/chats/:id/mute', ah(async (req, res) => {
+  const r = await loadConversation(req.params.id, req.user.id);
+  await q('UPDATE conversation_members SET muted=$3 WHERE conversation_id=$1 AND user_id=$2', [r.id, req.user.id, !!req.body?.muted]);
+  res.json({ ok: true, muted: !!req.body?.muted });
+}));
+
+// ---------------------------------------------------------------- groups
+async function memberReads(conversationId, viewerId) {
+  const rows = await many(
+    "SELECT user_id, last_read_at FROM conversation_members WHERE conversation_id=$1 AND status='active' AND user_id<>$2",
+    [conversationId, viewerId],
+  );
+  return rows.map((x) => ({ userId: x.user_id, lastReadAt: iso(x.last_read_at) }));
+}
+
+/** A group must always have at least one admin: promote the longest-standing member if needed. */
+async function ensureGroupAdmin(conversationId) {
+  const admin = await one("SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND status='active' AND role='admin'", [conversationId]);
+  if (admin) return;
+  await q(
+    `UPDATE conversation_members SET role='admin' WHERE conversation_id=$1 AND user_id=(
+       SELECT user_id FROM conversation_members WHERE conversation_id=$1 AND status='active' ORDER BY joined_at ASC LIMIT 1)`,
+    [conversationId],
+  );
+}
+
+async function loadGroup(id, user, { admin = false } = {}) {
+  const r = await loadConversation(id, user.id);
+  if (r.kind !== 'group') throw bad('This is not a group chat.');
+  if (r.my_status !== 'active') throw forbidden('You are not in this group.');
+  if (admin && r.my_role !== 'admin') throw forbidden('Only group admins can do that.');
+  return r;
+}
+
+const validImage = (v) => {
+  if (v === null || v === '') return null;
+  const s = str(v, 300);
+  if (!/^\/uploads\/[\w.-]+$/.test(s)) throw bad('Upload the group photo first.');
+  return s;
+};
+
+/** Members that may be added by `actor`: active accounts that haven't blocked them and accept messages. */
+async function addableUsers(actorId, ids) {
+  const clean = [...new Set((Array.isArray(ids) ? ids : []).map((x) => str(x, 80)).filter((x) => x && x !== actorId))].slice(0, 255);
+  if (!clean.length) return { ok: [], skipped: [] };
+  const rows = await many("SELECT * FROM users WHERE id = ANY($1) AND status <> 'Suspended'", [clean]);
+  const ok = [];
+  const skipped = [];
+  for (const u of rows) {
+    if ((await isBlockedBetween(actorId, u.id)) || u.privacy?.allowMessages === false) skipped.push(fullName(u));
+    else ok.push(u);
+  }
+  return { ok, skipped };
+}
+
+router.post('/chats/groups', ah(async (req, res) => {
+  const me = req.user;
+  const title = str(req.body.title, 80);
+  if (!title) throw bad('Give the group a name.');
+  const description = str(req.body.description, 500);
+  const image = req.body.image ? validImage(req.body.image) : null;
+  const { ok, skipped } = await addableUsers(me.id, req.body.memberIds);
+  if (!ok.length) throw bad('Add at least one member who can join.');
+  const c = await one(
+    "INSERT INTO conversations(id,kind,title,description,image,created_by) VALUES ($1,'group',$2,$3,$4,$5) RETURNING *",
+    [newId('cv'), title, description, image, me.id],
+  );
+  await q("INSERT INTO conversation_members(conversation_id,user_id,role,last_read_at) VALUES ($1,$2,'admin',now())", [c.id, me.id]);
+  for (const u of ok) await q('INSERT INTO conversation_members(conversation_id,user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [c.id, u.id]);
+  await systemMessage(c.id, me.id, `${fullName(me)} created the group “${title}”`);
+  res.json({ conversation: strip(conversationOut(await loadConversation(c.id, me.id), me.id)), skipped });
+}));
+
+router.patch('/chats/:id', ah(async (req, res) => {
+  const me = req.user;
+  const r = await loadGroup(req.params.id, me, { admin: true });
+  const notes = [];
+  if (req.body.title !== undefined) {
+    const t = str(req.body.title, 80);
+    if (!t) throw bad('The group needs a name.');
+    if (t !== r.title) {
+      await q('UPDATE conversations SET title=$2 WHERE id=$1', [r.id, t]);
+      notes.push(`changed the group name to “${t}”`);
+    }
+  }
+  if (req.body.description !== undefined) {
+    const d = str(req.body.description, 500);
+    if (d !== (r.description || '')) {
+      await q('UPDATE conversations SET description=$2 WHERE id=$1', [r.id, d]);
+      notes.push('changed the group description');
+    }
+  }
+  if (req.body.image !== undefined) {
+    const img = validImage(req.body.image);
+    if (img !== (r.image || null)) {
+      await q('UPDATE conversations SET image=$2 WHERE id=$1', [r.id, img]);
+      notes.push(img ? 'changed the group photo' : 'removed the group photo');
+    }
+  }
+  for (const n of notes) await systemMessage(r.id, me.id, `${fullName(me)} ${n}`);
+  res.json({ conversation: strip(conversationOut(await loadConversation(r.id, me.id), me.id)) });
+}));
+
+router.delete('/chats/:id', ah(async (req, res) => {
+  const r = await loadGroup(req.params.id, req.user, { admin: true });
+  await q('DELETE FROM conversations WHERE id=$1', [r.id]);
+  res.json({ ok: true });
+}));
+
+router.get('/chats/:id/members', ah(async (req, res) => {
+  const r = await loadConversation(req.params.id, req.user.id);
+  const rows = await many(
+    `SELECT u.id, u.first_name, u.last_name, u.location, u.club_position, cm.role, cm.joined_at, cm.last_read_at
+     FROM conversation_members cm JOIN users u ON u.id=cm.user_id
+     WHERE cm.conversation_id=$1 AND cm.status='active'
+     ORDER BY (cm.role='admin') DESC, u.first_name, u.last_name`,
+    [r.id],
+  );
+  res.json({
+    members: rows.map((u) => ({
+      id: u.id,
+      name: fullName(u),
+      initials: initials(u.first_name, u.last_name),
+      location: u.location || '',
+      clubPosition: u.club_position || null,
+      role: u.role,
+      isMe: u.id === req.user.id,
+    })),
+  });
+}));
+
+router.post('/chats/:id/members', ah(async (req, res) => {
+  const me = req.user;
+  const r = await loadGroup(req.params.id, me, { admin: true });
+  const { ok, skipped } = await addableUsers(me.id, req.body.userIds);
+  const added = [];
+  for (const u of ok) {
+    const cur = await one('SELECT status FROM conversation_members WHERE conversation_id=$1 AND user_id=$2', [r.id, u.id]);
+    if (cur?.status === 'active') continue;
+    await q(
+      `INSERT INTO conversation_members(conversation_id,user_id,status,role,joined_at,last_read_at) VALUES ($1,$2,'active','member',now(),now())
+       ON CONFLICT (conversation_id,user_id) DO UPDATE SET status='active', role='member', joined_at=now(), last_read_at=now()`,
+      [r.id, u.id],
+    );
+    added.push(fullName(u));
+  }
+  if (added.length) await systemMessage(r.id, me.id, `${fullName(me)} added ${added.join(', ')}`);
+  res.json({ ok: true, added, skipped });
+}));
+
+router.patch('/chats/:id/members/:userId', ah(async (req, res) => {
+  const me = req.user;
+  const r = await loadGroup(req.params.id, me, { admin: true });
+  const role = req.body.role === 'admin' ? 'admin' : 'member';
+  const t = await one(
+    "SELECT u.*, cm.role AS cm_role FROM conversation_members cm JOIN users u ON u.id=cm.user_id WHERE cm.conversation_id=$1 AND cm.user_id=$2 AND cm.status='active'",
+    [r.id, req.params.userId],
+  );
+  if (!t) throw notFound('Member not found.');
+  if (t.cm_role !== role) {
+    await q('UPDATE conversation_members SET role=$3 WHERE conversation_id=$1 AND user_id=$2', [r.id, t.id, role]);
+    await systemMessage(r.id, me.id, role === 'admin' ? `${fullName(me)} made ${fullName(t)} a group admin` : `${fullName(t)} is no longer a group admin`);
+    await ensureGroupAdmin(r.id);
+  }
+  res.json({ ok: true });
+}));
+
+router.delete('/chats/:id/members/:userId', ah(async (req, res) => {
+  const me = req.user;
+  const r = await loadGroup(req.params.id, me, { admin: true });
+  if (req.params.userId === me.id) throw bad('Use “Leave group” to leave.');
+  const t = await one(
+    "SELECT u.* FROM conversation_members cm JOIN users u ON u.id=cm.user_id WHERE cm.conversation_id=$1 AND cm.user_id=$2 AND cm.status='active'",
+    [r.id, req.params.userId],
+  );
+  if (!t) throw notFound('Member not found.');
+  await q("UPDATE conversation_members SET status='left', role='member' WHERE conversation_id=$1 AND user_id=$2", [r.id, t.id]);
+  await systemMessage(r.id, me.id, `${fullName(me)} removed ${fullName(t)}`);
   res.json({ ok: true });
 }));
 

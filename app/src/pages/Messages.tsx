@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Flag, Image as ImageIcon, Loader2, Lock, PenSquare, Search, Users } from 'lucide-react';
+import { BellOff, Flag, Image as ImageIcon, Loader2, Lock, MessageCirclePlus, PenSquare, Search, Users } from 'lucide-react';
+import { GroupAvatar, NewGroupSheet } from '@/components/chat/GroupSheets';
 import { chatApi, refreshChatCounts } from '@/lib/chat';
 import type { Conversation } from '@/lib/chat';
 import { MEMBERS, MEMBER_PROFILE } from '@/lib/data';
@@ -9,7 +10,7 @@ import { useToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
-type Tab = 'private' | 'crews' | 'requests';
+type Tab = 'private' | 'groups' | 'requests';
 
 export function shortTime(isoStr: string | null | undefined) {
   if (!isoStr) return '';
@@ -41,8 +42,9 @@ export function Avatar({ initials, size = 52, tone = 'blue' }: { initials: strin
 
 function preview(c: Conversation) {
   const m = c.lastMessage;
-  if (!m) return c.kind === 'crew' ? 'Say hello to the crew' : 'No messages yet';
-  const who = m.mine ? 'You: ' : c.kind === 'crew' ? `${m.senderName.split(' ')[0]}: ` : '';
+  if (!m) return c.kind === 'direct' ? 'No messages yet' : 'Say hello to the group';
+  if (m.system) return m.body;
+  const who = m.mine ? 'You: ' : c.kind !== 'direct' ? `${m.senderName.split(' ')[0]}: ` : '';
   if (!m.body && m.attachmentType) {
     const label = { image: 'Sent a photo', car: 'Shared a car', event: 'Shared an event', listing: 'Shared a listing' }[m.attachmentType] ?? 'Shared something';
     return `${who}${label}`;
@@ -57,7 +59,9 @@ function Row({ c }: { c: Conversation }) {
       to={`/messages/${c.id}`}
       className="flex min-h-[72px] items-center gap-3 rounded-2xl px-2 py-2 transition-colors active:bg-surface-2 sm:px-3 sm:hover:bg-surface-2"
     >
-      {c.kind === 'crew' ? (
+      {c.kind === 'group' ? (
+        <GroupAvatar image={c.image} title={c.title} />
+      ) : c.kind === 'crew' ? (
         c.image ? (
           <img src={c.image} alt="" className="h-[52px] w-[52px] shrink-0 rounded-2xl object-cover" />
         ) : (
@@ -71,7 +75,9 @@ function Row({ c }: { c: Conversation }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           {c.kind === 'crew' && <Flag size={13} className="shrink-0 text-bmw-blue" />}
+          {c.kind === 'group' && <Users size={13} className="shrink-0 text-bmw-blue" />}
           <p className={cn('truncate text-[15px] text-ink', unread ? 'font-bold' : 'font-semibold')}>{c.title}</p>
+          {c.muted && <BellOff size={13} className="shrink-0 text-ink-faint" aria-label="Muted" />}
         </div>
         <p className={cn('mt-0.5 flex items-center gap-1 truncate text-[13px]', unread ? 'font-semibold text-ink' : 'text-ink-muted')}>
           {c.lastMessage?.attachmentType === 'image' && <ImageIcon size={13} className="shrink-0" />}
@@ -81,9 +87,9 @@ function Row({ c }: { c: Conversation }) {
       <div className="flex shrink-0 flex-col items-end gap-1.5 self-stretch py-1">
         <span className={cn('text-[11px]', c.unread ? 'font-semibold text-bmw-blue' : 'text-ink-faint')}>{shortTime(c.lastMessageAt)}</span>
         {c.unread > 0 && (
-          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-hot px-1.5 text-[11px] font-bold text-hot-on">{c.unread}</span>
+          <span className={cn('flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold', c.muted ? 'bg-line text-ink-muted' : 'bg-hot text-hot-on')}>{c.unread}</span>
         )}
-        {c.kind === 'crew' && !c.unread && <span className="text-[11px] text-ink-faint">{c.memberCount} drivers</span>}
+        {c.kind !== 'direct' && !c.unread && <span className="text-[11px] text-ink-faint">{c.memberCount} {c.kind === 'crew' ? 'drivers' : 'members'}</span>}
       </div>
     </Link>
   );
@@ -161,6 +167,8 @@ export default function Messages() {
   const [tab, setTab] = useState<Tab>('private');
   const [qText, setQ] = useState('');
   const [composing, setComposing] = useState(false);
+  const [newGroup, setNewGroup] = useState(false);
+  const [chooser, setChooser] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -183,10 +191,10 @@ export default function Messages() {
   const shown = useMemo(() => {
     const t = qText.trim().toLowerCase();
     return (list ?? [])
-      .filter((c) => (tab === 'requests' ? c.status === 'request' : c.status !== 'request' && (tab === 'crews' ? c.kind === 'crew' : c.kind === 'direct')))
+      .filter((c) => (tab === 'requests' ? c.status === 'request' : c.status !== 'request' && (tab === 'groups' ? c.kind !== 'direct' : c.kind === 'direct')))
       .filter((c) => !t || `${c.title} ${c.lastMessage?.body ?? ''}`.toLowerCase().includes(t));
   }, [list, tab, qText]);
-  const crewUnread = (list ?? []).filter((c) => c.kind === 'crew' && c.unread > 0).length;
+  const crewUnread = (list ?? []).filter((c) => c.kind !== 'direct' && c.unread > 0 && !c.muted).length;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -202,9 +210,9 @@ export default function Messages() {
           />
         </label>
         <button
-          onClick={() => setComposing(true)}
+          onClick={() => setChooser(true)}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-bmw-blue text-white active:scale-95"
-          aria-label="New message"
+          aria-label="New message or group"
         >
           <PenSquare size={20} />
         </button>
@@ -214,7 +222,7 @@ export default function Messages() {
         {(
           [
             { id: 'private', label: 'Private', icon: Lock },
-            { id: 'crews', label: 'Crews', badge: crewUnread },
+            { id: 'groups', label: 'Groups', badge: crewUnread },
             { id: 'requests', label: 'Requests', badge: requests.length },
           ] as { id: Tab; label: string; icon?: typeof Lock; badge?: number }[]
         ).map((t) => (
@@ -244,10 +252,17 @@ export default function Messages() {
           Messages from members you haven’t chatted with wait here. They can’t see whether you’ve read them until you reply or accept.
         </p>
       )}
-      {tab === 'crews' && (
-        <p className="mt-3 rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] leading-relaxed text-ink-muted">
-          Every event you’re going to gets a crew chat with the other drivers attending.
-        </p>
+      {tab === 'groups' && (
+        <button
+          onClick={() => setNewGroup(true)}
+          className="mt-3 flex min-h-[60px] w-full items-center gap-3 rounded-2xl border border-dashed border-bmw-blue/50 bg-bmw-blue-light/40 px-3 text-left"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-bmw-blue text-white"><Users size={20} /></span>
+          <span>
+            <span className="block text-[15px] font-semibold text-ink">New group</span>
+            <span className="block text-[12px] text-ink-muted">Your chapter, model owners, a road-trip crew… Event crews appear here too.</span>
+          </span>
+        </button>
       )}
 
       <div className="mt-2">
@@ -259,21 +274,17 @@ export default function Messages() {
         {list !== null && shown.length === 0 && (
           <div className="py-14 text-center">
             <p className="font-display text-lg font-bold text-ink">
-              {tab === 'requests' ? 'No requests' : tab === 'crews' ? 'No crew chats yet' : 'No private chats yet'}
+              {tab === 'requests' ? 'No requests' : tab === 'groups' ? 'No groups yet' : 'No private chats yet'}
             </p>
             <p className="mx-auto mt-1 max-w-xs text-sm text-ink-muted">
-              {tab === 'crews' ? 'RSVP to an event on The Grid to join its crew chat.' : tab === 'private' ? 'Start one with any club member.' : 'You’re all clear.'}
+              {tab === 'groups' ? 'Create one above, or RSVP to an event to join its crew chat.' : tab === 'private' ? 'Start one with any club member.' : 'You’re all clear.'}
             </p>
             {tab === 'private' && (
               <button onClick={() => setComposing(true)} className="mt-4 h-12 rounded-2xl bg-bmw-blue px-6 font-semibold text-white">
                 New message
               </button>
             )}
-            {tab === 'crews' && (
-              <Link to="/events" className="mt-4 inline-flex h-12 items-center rounded-2xl bg-bmw-blue px-6 font-semibold text-white">
-                Browse events
-              </Link>
-            )}
+
           </div>
         )}
         {shown.map((c) => (
@@ -282,6 +293,30 @@ export default function Messages() {
       </div>
 
       <NewChatSheet open={composing} onClose={() => setComposing(false)} />
+      <NewGroupSheet open={newGroup} onClose={() => setNewGroup(false)} />
+      <Sheet open={chooser} onOpenChange={setChooser}>
+        <SheetContent side="bottom" className="rounded-t-3xl border-border bg-surface px-4 pb-[calc(16px+var(--safe-bottom))] pt-3 sm:mx-auto sm:max-w-lg [&>button]:hidden">
+          <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-line" aria-hidden />
+          <SheetHeader className="p-0 text-left">
+            <SheetTitle className="font-race text-2xl uppercase">Start a chat</SheetTitle>
+            <SheetDescription className="sr-only">Choose a private chat or a group</SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 grid gap-2">
+            {[
+              { label: 'New message', hint: 'Private chat with one member', icon: MessageCirclePlus, act: () => setComposing(true) },
+              { label: 'New group', hint: 'Chat with several members at once', icon: Users, act: () => setNewGroup(true) },
+            ].map((o) => (
+              <button key={o.label} onClick={() => { setChooser(false); o.act(); }} className="flex min-h-[60px] items-center gap-3.5 rounded-2xl border border-border bg-surface-2 px-4 text-left active:bg-bmw-blue-light">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bmw-blue text-white"><o.icon size={20} /></span>
+                <span>
+                  <span className="block text-[15px] font-semibold text-ink">{o.label}</span>
+                  <span className="block text-[13px] text-ink-muted">{o.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

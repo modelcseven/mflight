@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { one, q, many, newId } from '../db.js';
 import { requireArea, can, ROLES, ROLE_LABELS, PERMISSIONS } from '../auth.js';
 import { userCounts, memberOut, carOut, postOut, POST_SELECT, eventsOut, listingOut, orderOut } from '../serialize.js';
-import { getAllSettings, maskSettings, putSetting, SUPER_ONLY_KEYS, DEFAULT_SETTINGS } from '../settings.js';
+import { getAllSettings, getSetting, maskSettings, putSetting, SUPER_ONLY_KEYS, DEFAULT_SETTINGS } from '../settings.js';
 import { audit } from '../audit.js';
 import { notify } from '../notify.js';
 import { sendMail } from '../mailer.js';
@@ -156,6 +156,22 @@ router.patch('/users/:id', requireArea('users'), ah(async (req, res) => {
     if (await one('SELECT 1 FROM users WHERE email=$1 AND id<>$2', [email, u.id])) throw bad('Email already in use.');
     changes.email = email;
   }
+  // Club position and the date someone actually joined the club: super admins only.
+  if (b.clubPosition !== undefined || b.joinDate !== undefined) {
+    if (req.user.role !== 'super_admin') throw forbidden('Only super admins can set club positions and join dates.');
+    if (b.clubPosition !== undefined) {
+      const pos = str(b.clubPosition, 60);
+      const list = (await getSetting('positions'))?.list ?? [];
+      if (pos && !list.includes(pos)) throw bad('Pick a position from the list (Settings → Club positions).');
+      changes.club_position = pos || null;
+    }
+    if (b.joinDate !== undefined) {
+      const d = str(b.joinDate, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d))) throw bad('Enter the join date as YYYY-MM-DD.');
+      if (d > new Date().toISOString().slice(0, 10)) throw bad('The join date cannot be in the future.');
+      changes.join_date = d;
+    }
+  }
   if (b.disable2fa) { changes.totp_enabled = false; changes.totp_secret = null; }
   const keys = Object.keys(changes);
   if (keys.length) {
@@ -208,7 +224,7 @@ router.get('/users.csv', requireArea('users'), ah(async (req, res) => {
     { label: 'Last name', get: (r) => r.last_name }, { label: 'Email', get: (r) => r.email }, { label: 'Phone', get: (r) => r.phone },
     { label: 'Location', get: (r) => r.location }, { label: 'Chapter', get: (r) => r.chapter_country }, { label: 'Tier', get: (r) => r.tier_name },
     { label: 'Role', get: (r) => ROLE_LABELS[r.role] }, { label: 'Status', get: (r) => r.status },
-    { label: 'Joined', get: (r) => r.join_date }, { label: 'Expires', get: (r) => r.membership_expires },
+    { label: 'Position', get: (r) => r.club_position || '' }, { label: 'Joined', get: (r) => r.join_date }, { label: 'Expires', get: (r) => r.membership_expires },
   ]));
 }));
 
@@ -623,6 +639,13 @@ router.put('/settings/:key', requireArea('settings'), ah(async (req, res) => {
   const allowed = Object.keys(DEFAULT_SETTINGS[key]);
   const patch = {};
   for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+  if (key === 'positions') {
+    const seen = new Set();
+    patch.list = (Array.isArray(patch.list) ? patch.list : [])
+      .map((x) => String(x ?? '').trim().slice(0, 60))
+      .filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()))
+      .slice(0, 40);
+  }
   const next = await putSetting(key, patch);
   await audit(req, 'settings.updated', 'settings', key, { fields: Object.keys(patch) });
   res.json({ value: maskSettings({ [key]: next })[key] });

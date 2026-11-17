@@ -19,6 +19,24 @@ export interface ChatMessage {
   attachment: ChatAttachment | null;
   createdAt: string;
   mine: boolean;
+  deleted?: boolean;
+  kind?: 'text' | 'system';
+  replyTo?: { id: string; senderName: string; body: string } | null;
+}
+
+export interface GroupMember {
+  id: string;
+  name: string;
+  initials: string;
+  location: string;
+  clubPosition: string | null;
+  role: 'admin' | 'member';
+  isMe: boolean;
+}
+
+export interface MemberRead {
+  userId: string;
+  lastReadAt: string;
 }
 
 export interface ChatPeer {
@@ -30,7 +48,11 @@ export interface ChatPeer {
 
 export interface Conversation {
   id: string;
-  kind: 'direct' | 'crew';
+  kind: 'direct' | 'crew' | 'group';
+  description?: string;
+  myRole?: 'admin' | 'member';
+  muted?: boolean;
+  peerDeclined?: boolean;
   title: string;
   subtitle?: string;
   image?: string | null;
@@ -40,7 +62,7 @@ export interface Conversation {
   status: 'active' | 'request';
   /** true when I sent the first message and the other member has not accepted yet */
   awaitingAccept?: boolean;
-  lastMessage: { body: string; senderName: string; mine: boolean; createdAt: string; attachmentType?: string | null } | null;
+  lastMessage: { body: string; senderName: string; mine: boolean; system?: boolean; createdAt: string; attachmentType?: string | null } | null;
   lastMessageAt: string | null;
   unread: number;
   blocked?: boolean;
@@ -95,10 +117,21 @@ export function useChatBadgePolling(enabled: boolean) {
 
 export const chatApi = {
   list: () => api.get<{ conversations: Conversation[] }>('/chats'),
-  get: (id: string) => api.get<{ conversation: Conversation; messages: ChatMessage[] }>(`/chats/${id}`),
-  since: (id: string, after: string) => api.get<{ messages: ChatMessage[]; peerLastReadAt?: string | null }>(`/chats/${id}/messages?after=${encodeURIComponent(after)}`),
-  send: (id: string, body: string, attachment?: ChatAttachment | null) =>
-    api.post<{ message: ChatMessage }>(`/chats/${id}/messages`, { body, attachment: attachment ?? null }),
+  get: (id: string) => api.get<{ conversation: Conversation; messages: ChatMessage[]; reads: MemberRead[] | null }>(`/chats/${id}`),
+  since: (id: string, after: string) =>
+    api.get<{ messages: ChatMessage[]; peerLastReadAt?: string | null; reads?: MemberRead[] | null }>(`/chats/${id}/messages?after=${encodeURIComponent(after)}`),
+  send: (id: string, body: string, attachment?: ChatAttachment | null, replyTo?: string | null) =>
+    api.post<{ message: ChatMessage }>(`/chats/${id}/messages`, { body, attachment: attachment ?? null, replyTo: replyTo ?? null }),
+  mute: (id: string, muted: boolean) => api.post<{ ok: true; muted: boolean }>(`/chats/${id}/mute`, { muted }),
+  createGroup: (g: { title: string; description?: string; image?: string | null; memberIds: string[] }) =>
+    api.post<{ conversation: Conversation; skipped: string[] }>('/chats/groups', g),
+  updateGroup: (id: string, g: { title?: string; description?: string; image?: string | null }) =>
+    api.patch<{ conversation: Conversation }>(`/chats/${id}`, g),
+  deleteGroup: (id: string) => api.del<{ ok: true }>(`/chats/${id}`),
+  members: (id: string) => api.get<{ members: GroupMember[] }>(`/chats/${id}/members`),
+  addMembers: (id: string, userIds: string[]) => api.post<{ ok: true; added: string[]; skipped: string[] }>(`/chats/${id}/members`, { userIds }),
+  setRole: (id: string, userId: string, role: 'admin' | 'member') => api.patch<{ ok: true }>(`/chats/${id}/members/${userId}`, { role }),
+  removeMember: (id: string, userId: string) => api.del<{ ok: true }>(`/chats/${id}/members/${userId}`),
   start: (userId: string) => api.post<{ conversation: Conversation }>('/chats', { userId }),
   accept: (id: string) => api.post<{ conversation: Conversation }>(`/chats/${id}/accept`),
   decline: (id: string, block = false) => api.post<{ ok: true }>(`/chats/${id}/decline`, { block }),

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Ban, CalendarDays, CarFront, Check, Flag, ImagePlus, Loader2, Lock, LogOut, MoreVertical, Plus, SendHorizonal, ShoppingBag, Trash2, Users, X,
+  ArrowLeft, Ban, Bell, BellOff, CalendarDays, CarFront, Check, Copy, Flag, ImagePlus, Info, Loader2, Lock, LogOut, MoreVertical, Plus, Reply, SendHorizonal, ShoppingBag, Trash2, Users, X,
 } from 'lucide-react';
 import { chatApi, refreshChatCounts } from '@/lib/chat';
-import type { ChatAttachment, ChatMessage, Conversation as Conv } from '@/lib/chat';
+import type { ChatAttachment, ChatMessage, Conversation as Conv, MemberRead } from '@/lib/chat';
+import { GroupAvatar, GroupInfoSheet } from '@/components/chat/GroupSheets';
 import { CARS, CLUB_EVENTS, MARKETPLACE_LISTINGS, MEMBER_PROFILE, parseDate } from '@/lib/data';
 import { uploadImage } from '@/lib/api';
 import { useStore } from '@/lib/store';
@@ -26,6 +27,9 @@ const dayLabel = (d: Date) => {
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
   return d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
 };
+
+const NAME_COLORS = ['#3D8BFF', '#E2B93B', '#2BB673', '#FF7A45', '#B37FEB', '#13C2C2', '#F759AB', '#9AA3B2'];
+const nameColor = (id: string) => NAME_COLORS[[...id].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % NAME_COLORS.length];
 
 function attachmentLink(a: ChatAttachment) {
   if (a.type === 'car' && a.id) return `/garage/${a.id}`;
@@ -128,6 +132,10 @@ export default function Conversation() {
   const [conv, setConv] = useState<Conv | null>(null);
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [peerRead, setPeerRead] = useState<string | null>(null);
+  const [reads, setReads] = useState<MemberRead[] | null>(null);
+  const [replying, setReplying] = useState<ChatMessage | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState('');
   const [pending, setPending] = useState<ChatAttachment | null>(null);
   const [sending, setSending] = useState(false);
@@ -157,6 +165,7 @@ export default function Conversation() {
         setConv(r.conversation);
         setMessages(r.messages);
         setPeerRead(r.conversation.peerLastReadAt ?? null);
+        setReads(r.reads ?? null);
         scrollDown();
         refreshChatCounts();
       })
@@ -178,6 +187,7 @@ export default function Conversation() {
       try {
         const r = await chatApi.since(id, lastAt ?? new Date(0).toISOString());
         if (r.peerLastReadAt !== undefined) setPeerRead(r.peerLastReadAt ?? null);
+        if (r.reads) setReads(r.reads);
         if (r.messages.length) {
           setMessages((cur) => {
             const map = new Map((cur ?? []).map((m) => [m.id, m]));
@@ -199,10 +209,11 @@ export default function Conversation() {
     if ((!body && !pending) || sending) return;
     setSending(true);
     try {
-      const r = await chatApi.send(id, body, pending);
+      const r = await chatApi.send(id, body, pending, replying?.id);
       setMessages((cur) => [...(cur ?? []), r.message]);
       setText('');
       setPending(null);
+      setReplying(null);
       if (conv?.status === 'request') setConv({ ...conv, status: 'active' });
       scrollDown(true);
     } catch (e) {
@@ -265,7 +276,7 @@ export default function Conversation() {
     }
   };
   const leaveCrew = async () => {
-    if (!window.confirm('Leave this crew chat?')) return;
+    if (!window.confirm(isGroup ? 'Leave this group?' : 'Leave this crew chat?')) return;
     try {
       await chatApi.leave(id);
       navigate('/messages', { replace: true });
@@ -285,9 +296,31 @@ export default function Conversation() {
 
   const lastMineId = useMemo(() => [...(messages ?? [])].reverse().find((m) => m.mine)?.id, [messages]);
   const seen = !!(conv?.kind === 'direct' && peerRead && lastMineId && messages?.find((m) => m.id === lastMineId && m.createdAt <= peerRead));
+  const lastMineAt = messages?.find((m) => m.id === lastMineId)?.createdAt;
+  const readCount = lastMineAt && reads ? reads.filter((r) => r.lastReadAt >= lastMineAt).length : 0;
+  const groupReceipt = conv && conv.kind !== 'direct' && reads && lastMineAt
+    ? readCount === 0 ? 'Delivered' : readCount >= reads.length ? 'Read by everyone' : `Read by ${readCount}`
+    : null;
 
-  const isCrew = conv?.kind === 'crew';
-  const canWrite = conv && !conv.blocked && !(conv as Conv & { peerDeclined?: boolean }).peerDeclined;
+  const isCrew = conv?.kind !== 'direct' && !!conv;
+  const isGroup = conv?.kind === 'group';
+  const canWrite = conv && !conv.blocked && !conv.peerDeclined;
+  const toggleMute = async () => {
+    if (!conv) return;
+    try {
+      const r = await chatApi.mute(id, !conv.muted);
+      setConv({ ...conv, muted: r.muted });
+      refreshChatCounts();
+      toast(r.muted ? 'Chat muted.' : 'Chat unmuted.');
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  };
+  const startReply = (m: ChatMessage) => {
+    setReplying(m);
+    setSelected(null);
+    window.setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-bg-app md:relative md:inset-auto md:z-auto md:h-[calc(100dvh-64px-48px)] md:overflow-hidden md:rounded-3xl md:border md:border-border">
@@ -297,21 +330,34 @@ export default function Conversation() {
           <Link to="/messages" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink" aria-label="Back to messages">
             <ArrowLeft size={22} />
           </Link>
-          {conv ? (
-            isCrew ? (
-              conv.image ? <img src={conv.image} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-bmw-blue-light text-bmw-blue"><Users size={19} /></span>
+          <button
+            type="button"
+            disabled={!conv || !isCrew}
+            onClick={() => setInfoOpen(true)}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl py-1 text-left disabled:cursor-default"
+            aria-label={isCrew ? 'Group info' : undefined}
+          >
+            {conv ? (
+              isGroup ? (
+                <GroupAvatar image={conv.image} title={conv.title} size={40} />
+              ) : isCrew ? (
+                conv.image ? <img src={conv.image} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-bmw-blue-light text-bmw-blue"><Users size={19} /></span>
+              ) : (
+                <Avatar initials={conv.peer?.initials ?? '··'} size={40} />
+              )
             ) : (
-              <Avatar initials={conv.peer?.initials ?? '··'} size={40} />
-            )
-          ) : (
-            <span className="h-10 w-10 rounded-full bg-surface-2" />
-          )}
-          <div className="ml-1.5 min-w-0 flex-1">
-            <p className="truncate text-[16px] font-bold leading-tight text-ink">{conv?.title ?? ' '}</p>
-            <p className="truncate text-[12px] text-ink-muted">
-              {conv ? (isCrew ? `${conv.memberCount} drivers · ${conv.subtitle ?? ''}` : conv.subtitle || 'Private chat') : ' '}
-            </p>
-          </div>
+              <span className="h-10 w-10 rounded-full bg-surface-2" />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-[16px] font-bold leading-tight text-ink">{conv?.title ?? ' '}</span>
+                {conv?.muted && <BellOff size={13} className="shrink-0 text-ink-faint" aria-label="Muted" />}
+              </span>
+              <span className="block truncate text-[12px] text-ink-muted">
+                {conv ? (isGroup ? `${conv.memberCount} members · tap for group info` : isCrew ? `${conv.memberCount} drivers · ${conv.subtitle ?? ''}` : conv.subtitle || 'Private chat') : ' '}
+              </span>
+            </span>
+          </button>
           <ThemeToggle />
           {conv && (
             <DropdownMenu>
@@ -321,6 +367,14 @@ export default function Conversation() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1.5">
+                {isCrew && (
+                  <DropdownMenuItem onClick={() => setInfoOpen(true)} className="min-h-[44px] gap-2.5 rounded-xl">
+                    <Info size={16} /> {isGroup ? 'Group info' : 'Crew members'}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={toggleMute} className="min-h-[44px] gap-2.5 rounded-xl">
+                  {conv.muted ? <Bell size={16} /> : <BellOff size={16} />} {conv.muted ? 'Unmute' : 'Mute'}
+                </DropdownMenuItem>
                 {isCrew && conv.eventId && (
                   <DropdownMenuItem onClick={() => navigate(`/events?event=${conv.eventId}`)} className="min-h-[44px] gap-2.5 rounded-xl">
                     <CalendarDays size={16} /> View event
@@ -328,7 +382,7 @@ export default function Conversation() {
                 )}
                 {isCrew ? (
                   <DropdownMenuItem onClick={leaveCrew} className="min-h-[44px] gap-2.5 rounded-xl text-danger focus:text-danger">
-                    <LogOut size={16} /> Leave crew chat
+                    <LogOut size={16} /> {isGroup ? 'Leave group' : 'Leave crew chat'}
                   </DropdownMenuItem>
                 ) : (
                   <>
@@ -366,7 +420,9 @@ export default function Conversation() {
         <div className="mx-auto flex max-w-2xl flex-col gap-1.5">
           <p className="mx-auto mb-2 flex max-w-[320px] items-start gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-[12px] leading-snug text-ink-muted">
             <Lock size={15} className="mt-px shrink-0 text-bmw-blue" />
-            {isCrew
+            {isGroup
+              ? 'Group chat — only members of this group can see it. Tap the name above for group info.'
+              : isCrew
               ? 'Crew chat for drivers going to this event. Only members of the crew can see it.'
               : `Private chat — only you${conv?.peer ? ` and ${conv.peer.name.split(' ')[0]}` : ''} can see it. You can block or report anytime.`}
           </p>
@@ -380,11 +436,22 @@ export default function Conversation() {
             const prev = messages[i - 1];
             const newDay = !prev || new Date(prev.createdAt).toDateString() !== d.toDateString();
             const grouped = prev && !newDay && prev.senderId === m.senderId && d.getTime() - new Date(prev.createdAt).getTime() < 5 * 60000;
-            const deleted = (m as ChatMessage & { deleted?: boolean }).deleted;
+            const deleted = m.deleted;
+            if (m.kind === 'system') {
+              return (
+                <div key={m.id} className="flex flex-col">
+                  {newDay && <p className="my-2 self-center text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{dayLabel(d)}</p>}
+                  <p className="my-1.5 max-w-[85%] self-center rounded-full bg-surface-2 px-3 py-1 text-center text-[12px] text-ink-muted">{m.body}</p>
+                </div>
+              );
+            }
+            const prevSys = prev?.kind === 'system';
             return (
               <div key={m.id} className="flex flex-col">
                 {newDay && <p className="my-2 self-center text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{dayLabel(d)}</p>}
-                {isCrew && !m.mine && !grouped && <p className="ml-3 mt-1.5 text-[11px] font-semibold text-ink-muted">{m.senderName}</p>}
+                {isCrew && !m.mine && (!grouped || prevSys) && (
+                  <p className="ml-3 mt-1.5 text-[12px] font-semibold" style={{ color: nameColor(m.senderId ?? m.senderName) }}>{m.senderName}</p>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -393,6 +460,12 @@ export default function Conversation() {
                   }}
                   className={cn('flex max-w-[82%] flex-col gap-1 text-left', m.mine ? 'self-end items-end' : 'self-start items-start', !grouped && 'mt-1')}
                 >
+                  {m.replyTo && !deleted && (
+                    <span className={cn('block max-w-full rounded-2xl border-l-4 px-3 py-1.5 text-[12px]', m.mine ? 'border-white/70 bg-black/20 text-white' : 'border-bmw-blue bg-surface text-ink')}>
+                      <span className="block font-semibold">{m.replyTo.senderName}</span>
+                      <span className={cn('line-clamp-2', m.mine ? 'text-white/85' : 'text-ink-muted')}>{m.replyTo.body}</span>
+                    </span>
+                  )}
                   {m.attachment && <AttachmentCard a={m.attachment} mine={m.mine} />}
                   {(m.body || deleted) && (
                     <span
@@ -409,6 +482,20 @@ export default function Conversation() {
                 {selected === m.id && (
                   <div className={cn('mt-1 flex items-center gap-2 text-[12px]', m.mine ? 'self-end' : 'self-start')}>
                     <span className="text-ink-faint">{d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    {canWrite && conv?.status !== 'request' && (
+                      <button onClick={() => startReply(m)} className="flex h-9 items-center gap-1 rounded-full border border-border bg-surface px-3 font-semibold text-ink">
+                        <Reply size={13} /> Reply
+                      </button>
+                    )}
+                    {m.body && (
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(m.body).then(() => toast('Copied.')).catch(() => {}); setSelected(null); }}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-ink"
+                        aria-label="Copy message"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    )}
                     {m.mine ? (
                       <button onClick={() => deleteMsg(m.id)} className="flex h-9 items-center gap-1 rounded-full border border-border bg-surface px-3 font-semibold text-danger">
                         <Trash2 size={13} /> Delete
@@ -421,6 +508,7 @@ export default function Conversation() {
                   </div>
                 )}
                 {m.id === lastMineId && seen && <p className="mr-1 mt-1 self-end text-[11px] text-ink-faint">Seen</p>}
+                {m.id === lastMineId && groupReceipt && <p className="mr-1 mt-1 self-end text-[11px] text-ink-faint">{groupReceipt}</p>}
               </div>
             );
           })}
@@ -458,6 +546,18 @@ export default function Conversation() {
           }}
           className="border-t border-border bg-navbar/95 px-2.5 pb-[calc(10px+var(--safe-bottom))] pt-2.5 backdrop-blur-xl"
         >
+          {replying && (
+            <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-2xl border-l-4 border-bmw-blue bg-surface px-3 py-2 text-[13px]">
+              <Reply size={15} className="shrink-0 text-bmw-blue" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-ink">Replying to {replying.mine ? 'yourself' : replying.senderName}</span>
+                <span className="block truncate text-ink-muted">{replying.body || (replying.attachment ? `Shared a ${replying.attachment.type}` : '')}</span>
+              </span>
+              <button type="button" onClick={() => setReplying(null)} aria-label="Cancel reply" className="flex h-8 w-8 items-center justify-center rounded-full text-ink-muted">
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {(pending || uploading) && (
             <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2 text-[13px] text-ink">
               {uploading ? <Loader2 size={16} className="animate-spin" /> : pending?.type === 'image' ? <ImagePlus size={16} /> : <Plus size={16} />}
@@ -481,6 +581,7 @@ export default function Conversation() {
             <label className="min-w-0 flex-1">
               <span className="sr-only">Message</span>
               <textarea
+                ref={inputRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
@@ -491,7 +592,7 @@ export default function Conversation() {
                 }}
                 rows={1}
                 maxLength={2000}
-                placeholder={isCrew ? 'Message the crew…' : `Message ${conv?.peer?.name.split(' ')[0] ?? ''}…`}
+                placeholder={isGroup ? `Message ${conv?.title ?? 'the group'}…` : isCrew ? 'Message the crew…' : `Message ${conv?.peer?.name.split(' ')[0] ?? ''}…`}
                 className="block max-h-32 min-h-[44px] w-full resize-none rounded-[22px] border border-border bg-surface px-4 py-[11px] text-[15px] leading-snug text-ink outline-none placeholder:text-ink-faint focus:border-bmw-blue"
                 style={{ fieldSizing: 'content' } as React.CSSProperties}
               />
@@ -518,6 +619,19 @@ export default function Conversation() {
           setSharing(false);
         }}
       />
+      {conv && isCrew && (
+        <GroupInfoSheet
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          conv={conv}
+          onChanged={(c) => setConv({ ...conv, ...c })}
+          onLeft={() => {
+            setInfoOpen(false);
+            refreshChatCounts();
+            navigate('/messages', { replace: true });
+          }}
+        />
+      )}
       {report && (
         <ReportDialog
           targetType={report.split(':')[0] as 'user' | 'message'}

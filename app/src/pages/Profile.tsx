@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import PositionBadge from '@/components/PositionBadge';
 import { motion } from 'framer-motion';
 import { ArrowRight, BadgeCheck, CalendarDays, MapPin } from 'lucide-react';
 import { MEMBER_PROFILE, SETTINGS, carsByOwner, formatDate } from '@/lib/data';
@@ -66,6 +67,7 @@ export default function Profile() {
                   <span className="rounded-full bg-gold-light px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gold-dark">
                     {MEMBER_PROFILE.tier}
                   </span>
+                  <PositionBadge position={MEMBER_PROFILE.clubPosition} size="md" />
                 </div>
                 <div className="mt-3">
                   <MembershipPlate number={MEMBER_PROFILE.membershipNumber} size="sm" />

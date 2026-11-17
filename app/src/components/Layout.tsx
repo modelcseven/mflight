@@ -320,7 +320,7 @@ export default function Layout() {
               <ThemeToggle />
               <Link
                 to="/messages"
-                className="relative flex h-11 w-11 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-slate-100 hover:text-ink"
+                className={cn('relative h-11 w-11 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-slate-100 hover:text-ink', location.pathname.startsWith('/messages') ? 'hidden md:flex' : 'flex')}
                 aria-label={`Messages${chatUnread ? `, ${chatUnread} unread` : ''}`}
               >
                 <MessageCircle size={20} />
