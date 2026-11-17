@@ -18,7 +18,7 @@ createRoot(document.getElementById('root')!).render(
 
 // Installable app: register the service worker in production builds.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+  const register = () => navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }

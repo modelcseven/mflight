@@ -6,7 +6,8 @@ WORKDIR /web
 COPY app/package.json app/package-lock.json app/.npmrc ./
 RUN npm ci --include=dev --no-audit --no-fund
 COPY app/ ./
-RUN npm run build
+# Install with dev tools, but build in production mode (optimised React, service worker on).
+RUN NODE_ENV=production npm run build
 
 # ---------- 2. API server + static files ----------
 FROM node:22-alpine
